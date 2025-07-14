@@ -1,6 +1,13 @@
 import streamlit as st
 import pandas as pd
 import spacy
+import subprocess
+try:
+    nlp = spacy.load("en_core_web_md")
+except OSError:
+    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_md"])
+    nlp = spacy.load("en_core_web_md")
+
 import random
 from datetime import datetime
 
