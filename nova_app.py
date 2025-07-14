@@ -1,51 +1,39 @@
 import streamlit as st
 import pandas as pd
 import spacy
-import random
-import subprocess
-from datetime import datetime
 
-# Load spaCy model (auto-download if not found)
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    st.warning("⏳ Downloading spaCy model... please wait a moment.")
-    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
-    nlp = spacy.load("en_core_web_sm")
+st.set_page_config(page_title="Nova FAQ Assistant", page_icon="💬")
 
-# Load FAQ data
+@st.cache_resource
+def load_model():
+    return spacy.load("en_core_web_sm")
+
+nlp = load_model()
+
 def load_faq_data():
-    df = pd.read_csv("faq_data.csv")  # Replace with your actual file if different
+    df = pd.read_csv("faq_data.csv")
     return df
 
-# Get most relevant answer using spaCy similarity
 def get_best_answer(question, df):
     doc1 = nlp(question)
-    max_score = 0
-    best_answer = "Sorry, I couldn't find an answer. Try rephrasing."
+    best_score = 0
+    best_answer = "❌ Sorry, I couldn't find a matching answer. Try rephrasing it!"
 
-    for i, row in df.iterrows():
+    for _, row in df.iterrows():
         doc2 = nlp(row["question"])
-        similarity = doc1.similarity(doc2)
-        if similarity > max_score:
-            max_score = similarity
+        score = doc1.similarity(doc2)
+        if score > best_score:
+            best_score = score
             best_answer = row["answer"]
     return best_answer
 
-# Streamlit App
-st.set_page_config(page_title="Nova FAQ Assistant", page_icon="💬")
-
 st.title("💬 Nova FAQ Assistant")
-st.markdown("Ask me anything about the project!")
+st.write("Ask me a question from your FAQ dataset:")
 
 faq_data = load_faq_data()
 
-question_input = st.text_input("❓ Type your question here")
+user_question = st.text_input("🔍 Enter your question here:")
 
-if question_input:
-    answer = get_best_answer(question_input, faq_data)
+if user_question:
+    answer = get_best_answer(user_question, faq_data)
     st.success(answer)
-
-    # Bonus feature: fun emoji feedback
-    if "thanks" in question_input.lower():
-        st.balloons()
