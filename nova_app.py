@@ -1,102 +1,51 @@
 import streamlit as st
 import pandas as pd
 import spacy
-import subprocess
-import openai
 import random
+import subprocess
 from datetime import datetime
 
-# Automatically install the spaCy model if missing
+# Load spaCy model (auto-download if not found)
 try:
     nlp = spacy.load("en_core_web_sm")
-
 except OSError:
-    st.warning("Downloading spaCy model... please wait ⏳")
-    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_md"])
+    st.warning("⏳ Downloading spaCy model... please wait a moment.")
+    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
     nlp = spacy.load("en_core_web_sm")
 
 # Load FAQ data
-def load_faqs():
-    return pd.DataFrame({
-        "question": [
-            "What is a microcontroller?",
-            "Applications of microcontrollers?",
-            "What is an embedded system?",
-            "Difference between microprocessor and microcontroller?",
-            "What languages are used in microcontroller programming?",
-            "What is Flash memory in microcontrollers?"
-        ],
-        "answer": [
-            "A microcontroller is an integrated circuit designed to perform specific operations in embedded systems.",
-            "Microcontrollers are used in washing machines, automobiles, medical devices, and IoT gadgets.",
-            "An embedded system is a computer system with a dedicated function within a larger system.",
-            "A microcontroller has CPU, RAM, ROM and peripherals on a single chip, while a microprocessor has only the CPU.",
-            "Microcontrollers are typically programmed in C, C++, or assembly language.",
-            "Flash memory is non-volatile storage used to store the program code of a microcontroller."
-        ]
-    })
+def load_faq_data():
+    df = pd.read_csv("faq_data.csv")  # Replace with your actual file if different
+    return df
 
-# Semantic similarity using spaCy
-def get_best_answer(user_question, faqs):
-    user_doc = nlp(user_question)
-    scores = []
-    for i, q in enumerate(faqs['question']):
-        score = user_doc.similarity(nlp(q))
-        scores.append((score, i))
-    best_score, best_index = max(scores)
-    if best_score > 0.75:
-        return faqs['answer'][best_index]
-    else:
-        return None
+# Get most relevant answer using spaCy similarity
+def get_best_answer(question, df):
+    doc1 = nlp(question)
+    max_score = 0
+    best_answer = "Sorry, I couldn't find an answer. Try rephrasing."
 
-# GPT fallback if no good FAQ match
-def get_gpt_answer(user_question):
-    openai.api_key = st.secrets["OPENAI_API_KEY"]
-    response = openai.ChatCompletion.create(
-        model="gpt-3.5-turbo",
-        messages=[{
-            "role": "user",
-            "content": user_question
-        }]
-    )
-    return response.choices[0].message.content.strip()
+    for i, row in df.iterrows():
+        doc2 = nlp(row["question"])
+        similarity = doc1.similarity(doc2)
+        if similarity > max_score:
+            max_score = similarity
+            best_answer = row["answer"]
+    return best_answer
 
-# UI setup
-st.set_page_config(page_title="NOVA: FAQ + AI Assistant", page_icon="🤖")
-st.title("✨ NOVA - Your Project FAQ Assistant")
+# Streamlit App
+st.set_page_config(page_title="Nova FAQ Assistant", page_icon="💬")
 
-# Sidebar
-with st.sidebar:
-    st.image("https://i.imgur.com/H3JbG1r.png", width=150)
-    st.markdown("Ask me anything about your project!")
-    st.markdown("Created with ❤️ by Solace & Nyx")
+st.title("💬 Nova FAQ Assistant")
+st.markdown("Ask me anything about the project!")
 
-# Chat interface
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+faq_data = load_faq_data()
 
-user_input = st.chat_input("Ask a question...")
+question_input = st.text_input("❓ Type your question here")
 
-if user_input:
-    faqs = load_faqs()
-    with st.chat_message("user"):
-        st.markdown(user_input)
+if question_input:
+    answer = get_best_answer(question_input, faq_data)
+    st.success(answer)
 
-    # Try answering from FAQs
-    answer = get_best_answer(user_input, faqs)
-
-    if answer is None:
-        answer = get_gpt_answer(user_input)
-
-    with st.chat_message("ai"):
-        st.markdown(answer)
-    st.session_state.messages.append((user_input, answer))
-
-# Display chat history
-for user_msg, bot_reply in st.session_state.messages:
-    st.chat_message("user").markdown(user_msg)
-    st.chat_message("ai").markdown(bot_reply)
-
-# Footer with fun message
-st.markdown("---")
-st.caption(f"🧠 NOVA is running on {datetime.now().strftime('%A, %d %B %Y')}. Stay curious!")
+    # Bonus feature: fun emoji feedback
+    if "thanks" in question_input.lower():
+        st.balloons()
