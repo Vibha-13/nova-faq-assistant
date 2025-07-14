@@ -2,115 +2,100 @@ import streamlit as st
 import pandas as pd
 import spacy
 import subprocess
-try:
-    nlp = spacy.load("en_core_web_md")
-except OSError:
-    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_md"])
-    nlp = spacy.load("en_core_web_md")
-
+import openai
 import random
 from datetime import datetime
 
-# Load spaCy NLP model
-nlp = spacy.load("en_core_web_md")
+# Automatically install the spaCy model if missing
+try:
+    nlp = spacy.load("en_core_web_md")
+except OSError:
+    st.warning("Downloading spaCy model... please wait ⏳")
+    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_md"])
+    nlp = spacy.load("en_core_web_md")
 
 # Load FAQ data
-faq_data = pd.read_csv("faqs.csv")
+def load_faqs():
+    return pd.DataFrame({
+        "question": [
+            "What is a microcontroller?",
+            "Applications of microcontrollers?",
+            "What is an embedded system?",
+            "Difference between microprocessor and microcontroller?",
+            "What languages are used in microcontroller programming?",
+            "What is Flash memory in microcontrollers?"
+        ],
+        "answer": [
+            "A microcontroller is an integrated circuit designed to perform specific operations in embedded systems.",
+            "Microcontrollers are used in washing machines, automobiles, medical devices, and IoT gadgets.",
+            "An embedded system is a computer system with a dedicated function within a larger system.",
+            "A microcontroller has CPU, RAM, ROM and peripherals on a single chip, while a microprocessor has only the CPU.",
+            "Microcontrollers are typically programmed in C, C++, or assembly language.",
+            "Flash memory is non-volatile storage used to store the program code of a microcontroller."
+        ]
+    })
 
-# ------------------ Streamlit UI Setup ------------------
+# Semantic similarity using spaCy
+def get_best_answer(user_question, faqs):
+    user_doc = nlp(user_question)
+    scores = []
+    for i, q in enumerate(faqs['question']):
+        score = user_doc.similarity(nlp(q))
+        scores.append((score, i))
+    best_score, best_index = max(scores)
+    if best_score > 0.75:
+        return faqs['answer'][best_index]
+    else:
+        return None
 
-st.set_page_config(page_title="NOVA – Smart FAQ Assistant", page_icon="🌌")
+# GPT fallback if no good FAQ match
+def get_gpt_answer(user_question):
+    openai.api_key = st.secrets["OPENAI_API_KEY"]
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",
+        messages=[{
+            "role": "user",
+            "content": user_question
+        }]
+    )
+    return response.choices[0].message.content.strip()
 
-# Custom CSS
-st.markdown(
-    """
-    <style>
-        .main { background-color: #0f1117; color: white; }
-        .stTextInput > div > div > input {
-            background-color: #1e2130;
-            color: white;
-        }
-        footer {visibility: hidden;}
-    </style>
-    """,
-    unsafe_allow_html=True
-)
+# UI setup
+st.set_page_config(page_title="NOVA: FAQ + AI Assistant", page_icon="🤖")
+st.title("✨ NOVA - Your Project FAQ Assistant")
 
 # Sidebar
 with st.sidebar:
-    st.title("🌌 NOVA")
-    st.markdown("Your Personal Tech FAQ Assistant 🤖")
-    st.markdown("---")
-    st.markdown("Built with ❤️ using Python + spaCy + Streamlit")
-    st.markdown("By **Solace** ✨")
-    st.markdown("---")
-    st.caption("💡 Try asking: *'Start AI?'*, *'TCP vs UDP'* or *'Lost in tech'*")
+    st.image("https://i.imgur.com/H3JbG1r.png", width=150)
+    st.markdown("Ask me anything about your project!")
+    st.markdown("Created with ❤️ by Solace & Nyx")
 
-# Title
-st.markdown("<h2 style='color:#FFD700;'>Ask NOVA 💬</h2>", unsafe_allow_html=True)
+# Chat interface
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# User input
-user_question = st.text_input("👤 You:")
+user_input = st.chat_input("Ask a question...")
 
-# ✨ Motivational quotes
-quotes = [
-    "🌟 Keep going, your future self will thank you.",
-    "🚀 One small step every day builds greatness.",
-    "🧠 Learning never exhausts the mind.",
-    "✨ Even tech queens start somewhere.",
-    "📈 You’re not behind — you’re just building differently."
-]
+if user_input:
+    faqs = load_faqs()
+    with st.chat_message("user"):
+        st.markdown(user_input)
 
-# Answer logic
-if user_question:
-    user_doc = nlp(user_question)
-    best_score = 0
-    best_answer = "🤖 I'm still learning. I don’t have an answer for that yet."
+    # Try answering from FAQs
+    answer = get_best_answer(user_input, faqs)
 
-    for _, row in faq_data.iterrows():
-        faq_doc = nlp(row["Question"])
-        score = user_doc.similarity(faq_doc)
-        if score > best_score:
-            best_score = score
-            best_answer = row["Answer"]
+    if answer is None:
+        answer = get_gpt_answer(user_input)
 
-    # Display NOVA's answer
-    st.markdown(f"""
-        <div style='
-            padding: 1em;
-            background-color: #2a2d40;
-            border-radius: 10px;
-            color: #FFD700;
-            font-size: 16px;
-        '>
-            <strong>🪄 NOVA:</strong> {best_answer}
-        </div>
-    """, unsafe_allow_html=True)
+    with st.chat_message("ai"):
+        st.markdown(answer)
+    st.session_state.messages.append((user_input, answer))
 
-    st.markdown(f"<div style='margin-top: 2em; color: #999;'>{random.choice(quotes)}</div>", unsafe_allow_html=True)
+# Display chat history
+for user_msg, bot_reply in st.session_state.messages:
+    st.chat_message("user").markdown(user_msg)
+    st.chat_message("ai").markdown(bot_reply)
 
-    # Feedback buttons
-    st.write("**Was this helpful?**")
-    col1, col2 = st.columns([1, 1])
-    with col1:
-        if st.button("👍 Yes"):
-            feedback = {
-                "timestamp": datetime.now(),
-                "question": user_question,
-                "answer": best_answer,
-                "feedback": "👍"
-            }
-            df = pd.DataFrame([feedback])
-            df.to_csv("feedback_log.csv", mode="a", header=not pd.io.common.file_exists("feedback_log.csv"), index=False)
-            st.success("Thanks for your feedback! 💖")
-    with col2:
-        if st.button("👎 No"):
-            feedback = {
-                "timestamp": datetime.now(),
-                "question": user_question,
-                "answer": best_answer,
-                "feedback": "👎"
-            }
-            df = pd.DataFrame([feedback])
-            df.to_csv("feedback_log.csv", mode="a", header=not pd.io.common.file_exists("feedback_log.csv"), index=False)
-            st.info("Feedback noted. NOVA will try to improve 💡")
+# Footer with fun message
+st.markdown("---")
+st.caption(f"🧠 NOVA is running on {datetime.now().strftime('%A, %d %B %Y')}. Stay curious!")
