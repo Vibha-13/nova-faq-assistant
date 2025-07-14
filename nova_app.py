@@ -8,11 +8,12 @@ from datetime import datetime
 
 # Automatically install the spaCy model if missing
 try:
-    nlp = spacy.load("en_core_web_md")
+    nlp = spacy.load("en_core_web_sm")
+
 except OSError:
     st.warning("Downloading spaCy model... please wait ⏳")
     subprocess.run(["python", "-m", "spacy", "download", "en_core_web_md"])
-    nlp = spacy.load("en_core_web_md")
+    nlp = spacy.load("en_core_web_sm")
 
 # Load FAQ data
 def load_faqs():
