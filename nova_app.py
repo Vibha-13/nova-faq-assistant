@@ -1,52 +1,59 @@
 import streamlit as st
-import spacy
 import subprocess
+import sys
+import importlib
 import pandas as pd
-import openai
 
-# Load spaCy model with fallback
+# --- Install missing packages at runtime ---
+def install_if_needed(package, pip_name=None):
+    try:
+        importlib.import_module(package)
+    except ImportError:
+        subprocess.check_call([
+            sys.executable, "-m", "pip", "install", pip_name or package
+        ])
+
+install_if_needed("spacy")
+install_if_needed("en_core_web_sm", "https://github.com/explosion/spacy-models/releases/download/en_core_web_sm-3.7.1/en_core_web_sm-3.7.1-py3-none-any.whl")
+
+# --- Load spaCy model ---
+import spacy
 try:
     nlp = spacy.load("en_core_web_sm")
 except OSError:
-    subprocess.run(["python", "-m", "spacy", "download", "en_core_web_sm"])
+    subprocess.run([sys.executable, "-m", "spacy", "download", "en_core_web_sm"])
     nlp = spacy.load("en_core_web_sm")
 
-# Page settings
+# --- Streamlit UI ---
 st.set_page_config(page_title="Nova FAQ Assistant", page_icon="🤖")
 st.title("🤖 Nova - Your Smart FAQ Assistant")
 st.write("Ask me any question based on your uploaded FAQ!")
 
-# Upload FAQ file
+# --- Upload FAQ CSV file ---
 uploaded_file = st.file_uploader("Upload your FAQ file (CSV)", type="csv")
 
 if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.success("FAQ file uploaded successfully!")
+    st.success("✅ FAQ file uploaded successfully!")
     st.dataframe(df)
 
-    # Ask a question
+    # --- User asks a question ---
     user_question = st.text_input("Ask a question:")
 
     if user_question:
-        # Combine all FAQ questions and answers into one text block
-        faq_text = " ".join(df.astype(str).apply(lambda x: " ".join(x), axis=1))
+        # Combine all rows (questions + answers) into one block of text
+        faq_text = " ".join(df.astype(str).apply(lambda row: " ".join(row), axis=1))
 
-        # Process user question and FAQ
         user_doc = nlp(user_question)
         faq_doc = nlp(faq_text)
 
-        # Simple similarity (optional - this can be improved later)
-        similarity_score = user_doc.similarity(faq_doc)
+        similarity = user_doc.similarity(faq_doc)
 
-        st.write(f"🤔 Similarity Score: {similarity_score:.2f}")
+        st.write(f"🔍 Similarity Score: {similarity:.2f}")
 
-        # Placeholder for response (real implementation may use OpenAI or vector DB)
-        if similarity_score > 0.6:
+        if similarity > 0.6:
             st.success("✅ I think I found something related!")
-            # You could add a more detailed match or chunking logic here
         else:
             st.warning("⚠️ Sorry, I couldn't find anything relevant.")
-
 else:
     st.info("📄 Please upload a CSV FAQ file to begin.")
-
