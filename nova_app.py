@@ -1,59 +1,47 @@
 import streamlit as st
 import pandas as pd
-import spacy
+import openai
 
-# Load spaCy model safely
-try:
-    nlp = spacy.load("en_core_web_sm")
-except OSError:
-    st.error("spaCy model not found. Please make sure 'en_core_web_sm' is installed.")
-    st.stop()
+# Load OpenAI API key from Streamlit secrets
+openai.api_key = st.secrets["OPENAI_API_KEY"]
 
-# Page config
-st.set_page_config(page_title="Nova FAQ Assistant", page_icon="🤖")
+st.set_page_config(page_title="Nova - FAQ Assistant", page_icon="🤖")
 st.title("🤖 Nova - Your Smart FAQ Assistant")
-st.write("Ask me any question based on your uploaded or default FAQ!")
+st.write("Ask me anything related to your uploaded FAQ!")
 
-# Load default FAQ
-DEFAULT_FAQ_FILE = "faq.csv"
+uploaded_file = st.file_uploader("Upload your FAQ CSV", type="csv")
 
-# Try loading default file
-df = None
-default_loaded = False
-try:
-    df = pd.read_csv(DEFAULT_FAQ_FILE)
-    default_loaded = True
-    st.success("Default FAQ file loaded successfully.")
-except FileNotFoundError:
-    st.info("No default FAQ file found. Please upload one.")
-
-# File uploader for optional upload
-uploaded_file = st.file_uploader("📄 Upload a new FAQ file (CSV) to replace default", type="csv")
-
-if uploaded_file:
+if uploaded_file is not None:
     df = pd.read_csv(uploaded_file)
-    st.success("Uploaded FAQ file loaded successfully.")
-    default_loaded = False
-
-# If we have a dataframe to work with
-if df is not None:
+    st.success("✅ FAQ uploaded successfully!")
     st.dataframe(df)
 
-    user_question = st.text_input("🧠 Ask a question:")
+    question = st.text_input("💬 Ask your question:")
 
-    if user_question:
-        # Combine all FAQ rows into one string block
-        faq_text = " ".join(df.astype(str).apply(lambda row: " ".join(row), axis=1))
+    if question:
+        with st.spinner("Thinking..."):
+            context = ""
+            for i, row in df.iterrows():
+                context += f"Q: {row['Question']}\nA: {row['Answer']}\n\n"
 
-        user_doc = nlp(user_question)
-        faq_doc = nlp(faq_text)
-        similarity_score = user_doc.similarity(faq_doc)
+            prompt = f"""You are Nova, an intelligent FAQ assistant.
+Use the following FAQ to answer the user's question:
 
-        st.write(f"🤔 Similarity Score: `{similarity_score:.2f}`")
+{context}
 
-        if similarity_score > 0.6:
-            st.success("✅ I think I found something related!")
-        else:
-            st.warning("⚠️ Sorry, I couldn't find anything relevant.")
+User's Question: {question}
+Answer:"""
+
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are a helpful assistant."},
+                    {"role": "user", "content": prompt}
+                ]
+            )
+
+            answer = response['choices'][0]['message']['content'].strip()
+            st.success("🧠 Nova says:")
+            st.write(answer)
 else:
-    st.info("⚠️ Please upload a CSV FAQ file to begin.")
+    st.info("📄 Please upload the FAQ CSV file to begin.")
