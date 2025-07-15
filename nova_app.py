@@ -3,6 +3,10 @@ import pandas as pd
 import os
 from openai import OpenAI
 from difflib import SequenceMatcher
+from streamlit_audio_recorder import audio_recorder
+import base64
+import tempfile
+import speech_recognition as sr
 
 # 🎯 Together AI Setup
 api_key = st.secrets["together"]["api_key"]
@@ -17,16 +21,16 @@ with st.sidebar:
     if os.path.exists("nova_bot.png"):
         st.image("nova_bot.png", caption="Nova, your smart assistant 🤖", use_container_width=True)
     else:
-        st.warning("⚠️ 'nova_bot.png' not found in the app folder.")
+        st.warning("⚠️ 'nova_bot.png' not found.")
     
     st.markdown("### Built by **Solace** & **Nyx** ✨")
     st.markdown("---")
-    st.markdown("💬 Ask me anything from your FAQ!")
+    st.markdown("💬 Ask me by typing or speaking 🎤")
     
-    if st.button("🗑️ Clear Chat History"):
+    if st.button("🗑️ Clear Chat"):
         st.session_state.messages = []
 
-# 📁 Load FAQ Data
+# 📁 Load FAQ
 FAQ_FILE = "faqs.csv"
 
 @st.cache_data
@@ -45,21 +49,43 @@ if "messages" not in st.session_state:
     st.session_state.messages = []
 
 st.title("🤖 Nova - Smart FAQ Assistant")
-st.markdown("Nova loads your FAQ and chats with you smartly. If she can’t find an answer, she’ll ask GPT 📡")
+st.markdown("Ask by typing or use your voice 🎤")
 
-# 📝 Chat Input
-user_input = st.chat_input("Ask your question...")
+# 🎤 Voice Recorder
+audio_bytes = audio_recorder(pause_threshold=1.0, sample_rate=44100)
+user_input = None
 
-# 🧠 Similarity function
+# ✨ Convert Audio to Text
+if audio_bytes:
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+        tmpfile.write(audio_bytes)
+        tmpfile_path = tmpfile.name
+
+    recognizer = sr.Recognizer()
+    with sr.AudioFile(tmpfile_path) as source:
+        audio_data = recognizer.record(source)
+        try:
+            user_input = recognizer.recognize_google(audio_data)
+            st.success(f"🗣️ You said: **{user_input}**")
+        except sr.UnknownValueError:
+            st.error("❌ Could not understand audio.")
+        except sr.RequestError as e:
+            st.error(f"⚠️ Speech recognition error: {e}")
+
+# ✏️ Text Input fallback
+typed_input = st.chat_input("Ask your question...")
+if typed_input:
+    user_input = typed_input
+
+# 🔍 Similarity function
 def similarity(a, b):
     return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
 # 🔁 Process Input
 if user_input:
-    # Save user message
     st.session_state.messages.append({"role": "user", "content": user_input})
-    
-    # Step 1: Try matching from FAQ
+
+    # Step 1: FAQ Match
     best_match = None
     best_score = 0.0
     for q, a in faq_qa:
@@ -67,11 +93,10 @@ if user_input:
         if score > best_score:
             best_score = score
             best_match = (q, a)
-    
+
     if best_score > 0.6:
         reply = best_match[1]
     else:
-        # Step 2: GPT Fallback
         try:
             response = client.chat.completions.create(
                 model=MODEL_NAME,
@@ -83,7 +108,6 @@ if user_input:
         except Exception as e:
             reply = f"⚠️ GPT failed: {e}"
 
-    # Save assistant reply
     st.session_state.messages.append({"role": "assistant", "content": reply})
 
 # 💬 Display Chat
