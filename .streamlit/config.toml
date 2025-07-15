@@ -1,11 +1,6 @@
-[server]
-headless = true
-enableCORS = false
-port = 8501
-enableXsrfProtection = false
-
 [theme]
-base = "light"
-
-[general]
-setupScript = "setup.sh"
+primaryColor="#6c63ff"
+backgroundColor="#f5f5f5"
+secondaryBackgroundColor="#e0e0e0"
+textColor="#262730"
+font="sans serif"

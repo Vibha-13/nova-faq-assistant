@@ -1,77 +1,76 @@
 import streamlit as st
 import pandas as pd
-import openai
+import os
+from openai import OpenAI
+from difflib import SequenceMatcher
 
-# Set your OpenAI key from secrets
-openai.api_key = st.secrets["OPENAI_API_KEY"]
+# 🎯 API Setup (Together API)
+api_key = st.secrets["together"]["api_key"]
+client = OpenAI(api_key=api_key, base_url="https://api.together.xyz/v1")
 
-# Set up the Streamlit page
-st.set_page_config(page_title="Nova - FAQ Assistant", page_icon="🤖")
-st.title("🤖 Nova - Your Smart FAQ Assistant")
-st.write("Ask me anything! Nova has all your FAQs ready!")
+MODEL_NAME = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
-# 🔒 Built-in FAQ Data (no need to upload)
-data = [
-    ["What is machine learning?", "Machine learning is a branch of AI that allows systems to learn from data without being explicitly programmed."],
-    ["What are supervised and unsupervised learning?", "Supervised learning uses labeled data while unsupervised learning finds patterns in unlabeled data."],
-    ["How do I start learning AI?", "Start with Python, then learn libraries like NumPy, pandas, matplotlib, followed by ML algorithms using scikit-learn."],
-    ["What is deep learning?", "Deep learning is a subset of machine learning that uses neural networks to model complex patterns in data."],
-    ["What are some AI project ideas for beginners?", "Try loan prediction, emotion detection from text, digit recognition using MNIST, or a smart chatbot."],
-    ["What is natural language processing?", "NLP is the ability of a computer to understand, interpret, and generate human language."],
-    ["What are some good datasets for ML?", "Try UCI Machine Learning Repository, Kaggle, or open datasets like MNIST, Titanic, or Iris."],
-    ["What is overfitting?", "Overfitting is when a model learns training data too well and performs poorly on new, unseen data."],
-    ["What is computer networking?", "Networking is connecting systems to share data/resources. It uses layers and protocols like TCP/IP."],
-    ["What is the OSI model?", "OSI model has 7 layers to standardize communication: Physical, Data Link, Network, Transport, Session, Presentation, Application."],
-    ["What is the difference between TCP and UDP?", "TCP is reliable and slower (used for email, web), while UDP is faster but less reliable (used in video streaming, games)."],
-    ["What are IP and MAC addresses?", "IP address is your system’s network address. MAC is a hardware ID of your network interface card."],
-    ["What is DNS?", "DNS stands for Domain Name System. It translates domain names into IP addresses."],
-    ["What are common networking tools?", "Ping, Traceroute, Wireshark, and netstat are common tools for diagnostics and analysis."],
-    ["What is a router vs a switch?", "Routers connect networks (like internet to home), switches connect devices within the same network."],
-    ["What is Python used for?", "Python is a general-purpose language used for web development, AI/ML, automation, data science, and scripting."],
-    ["What are Python libraries for ML?", "scikit-learn, TensorFlow, Keras, PyTorch, pandas, and NumPy are the most used ML libraries."],
-    ["How do I install libraries in Python?", "Use pip in terminal. Example: pip install pandas"],
-    ["What is Jupyter Notebook?", "It's an interactive coding environment often used in data science and ML for mixing code, text, and visuals."],
-    ["What is a good first tech project?", "BMI calculator, to-do list, calculator app, or a portfolio website using HTML/CSS/JS or Streamlit."],
-    ["What is Streamlit?", "Streamlit is a Python library that lets you quickly build interactive web apps for data science and ML projects."],
-    ["What are some beginner ML projects?", "Iris flower classification, diabetes predictor, house price prediction, or movie recommendation systems."],
-    ["What is GitHub?", "GitHub is a platform to store, share, and collaborate on code. It also showcases your work to recruiters."],
-    ["How do I improve my resume?", "Add projects with links, use strong action words, include tech stack, and tailor it for each opportunity."],
-    ["How can I prepare for tech interviews?", "Practice DSA in C++/Python, solve aptitude problems, and revise core subjects like OS, DBMS, CN."],
-    ["How to manage time during placement prep?", "Make a weekly plan balancing coding, aptitude, and project work. Avoid multitasking during focus hours."],
-    ["What if I feel lost in tech?", "It’s normal! Focus on small consistent steps. Build one project at a time and track your growth."],
-    ["Can you motivate me?", "You’re not behind. You’re building your version of success. Small efforts daily → big wins later ✨"],
-    ["What should I do when I’m stuck?", "Break the task into smaller chunks, ask ChatGPT, check Stack Overflow, or take a 10-min break and return with fresh eyes."],
-    ["How do I stay consistent?", "Pick a small daily tech habit: 1 coding Q + 1 project update + 1 thing you learned. Don’t aim for perfect, aim for progress."]
-]
+# 📁 Auto-load FAQ from local file
+FAQ_FILE = "faqs.csv"
+if not os.path.exists(FAQ_FILE):
+    st.error("🚨 FAQ file not found! Please ensure 'faqs.csv' is in the app folder.")
+    st.stop()
 
-df = pd.DataFrame(data, columns=["Question", "Answer"])
-st.dataframe(df)
+# 📚 Load FAQ data
+df = pd.read_csv(FAQ_FILE)
+faq_qa = list(zip(df["Question"].astype(str), df["Answer"].astype(str)))
 
-# User question input
-user_question = st.text_input("💬 Ask a question:")
+# 🎨 Streamlit page config
+st.set_page_config(page_title="Nova - Smart FAQ Assistant", page_icon="🤖")
 
+# 📸 Sidebar
+with st.sidebar:
+    try:
+        st.image("nova_bot.png", caption="Nova, your smart assistant 🤖", use_container_width=True)
+    except Exception as e:
+        st.warning("⚠️ Could not load image. Make sure 'nova_bot.png' is in the app folder.")
+    st.markdown("### Built by **Solace** & **Nyx** ✨")
+    st.markdown("---")
+    st.markdown("💡 Nova reads your FAQ and finds the best answer.\nIf unsure, she asks GPT for help!")
+
+# 🧠 Main UI
+st.title("🤖 Nova - Smart FAQ Assistant")
+st.markdown("#### Ask anything from the loaded FAQ file 📄")
+st.markdown("🧠 Nova auto-loads your FAQ! Just type your question 👇")
+
+# 📝 Input
+user_question = st.text_input("💬 Ask your question:")
+
+# 🔍 Process input
 if user_question:
-    with st.spinner("Thinking..."):
-        context = ""
-        for i, row in df.iterrows():
-            context += f"Q: {row['Question']}\nA: {row['Answer']}\n\n"
+    def similarity(a, b):
+        return SequenceMatcher(None, a.lower(), b.lower()).ratio()
 
-        prompt = f"""You are Nova, an intelligent FAQ assistant.
-Use the following FAQ to answer the user's question:
+    best_match = None
+    best_score = 0.0
+    for q, a in faq_qa:
+        score = similarity(user_question, q)
+        if score > best_score:
+            best_score = score
+            best_match = (q, a)
 
-{context}
-
-User's Question: {user_question}
-Answer:"""
-
-        response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are a helpful assistant."},
-                {"role": "user", "content": prompt}
-            ]
-        )
-
-        answer = response['choices'][0]['message']['content'].strip()
-        st.success("🧠 Nova says:")
-        st.write(answer)
+    if best_score > 0.6:
+        st.success(f"✅ Found a relevant FAQ (Similarity: {best_score:.2f})")
+        st.markdown(f"**Q:** {best_match[0]}")
+        st.markdown(f"**🧠 Nova says:** {best_match[1]}")
+    else:
+        st.warning("🤔 Couldn't find an exact match, asking GPT instead...")
+        try:
+            response = client.chat.completions.create(
+                model=MODEL_NAME,
+                messages=[
+                    {"role": "system", "content": "You are Nova, a helpful AI FAQ assistant who answers clearly and encouragingly."},
+                    {"role": "user", "content": user_question}
+                ]
+            )
+            answer = response.choices[0].message.content.strip()
+            st.markdown("**🤖 Nova says:**")
+            st.info(answer)
+        except Exception as e:
+            st.error("❌ GPT failed to respond. Here's the full error:")
+            st.exception(e)
