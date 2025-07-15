@@ -2,46 +2,76 @@ import streamlit as st
 import pandas as pd
 import openai
 
-# Load OpenAI API key from Streamlit secrets
+# Set your OpenAI key from secrets
 openai.api_key = st.secrets["OPENAI_API_KEY"]
 
+# Set up the Streamlit page
 st.set_page_config(page_title="Nova - FAQ Assistant", page_icon="🤖")
 st.title("🤖 Nova - Your Smart FAQ Assistant")
-st.write("Ask me anything related to your uploaded FAQ!")
+st.write("Ask me anything! Nova has all your FAQs ready!")
 
-uploaded_file = st.file_uploader("Upload your FAQ CSV", type="csv")
+# 🔒 Built-in FAQ Data (no need to upload)
+data = [
+    ["What is machine learning?", "Machine learning is a branch of AI that allows systems to learn from data without being explicitly programmed."],
+    ["What are supervised and unsupervised learning?", "Supervised learning uses labeled data while unsupervised learning finds patterns in unlabeled data."],
+    ["How do I start learning AI?", "Start with Python, then learn libraries like NumPy, pandas, matplotlib, followed by ML algorithms using scikit-learn."],
+    ["What is deep learning?", "Deep learning is a subset of machine learning that uses neural networks to model complex patterns in data."],
+    ["What are some AI project ideas for beginners?", "Try loan prediction, emotion detection from text, digit recognition using MNIST, or a smart chatbot."],
+    ["What is natural language processing?", "NLP is the ability of a computer to understand, interpret, and generate human language."],
+    ["What are some good datasets for ML?", "Try UCI Machine Learning Repository, Kaggle, or open datasets like MNIST, Titanic, or Iris."],
+    ["What is overfitting?", "Overfitting is when a model learns training data too well and performs poorly on new, unseen data."],
+    ["What is computer networking?", "Networking is connecting systems to share data/resources. It uses layers and protocols like TCP/IP."],
+    ["What is the OSI model?", "OSI model has 7 layers to standardize communication: Physical, Data Link, Network, Transport, Session, Presentation, Application."],
+    ["What is the difference between TCP and UDP?", "TCP is reliable and slower (used for email, web), while UDP is faster but less reliable (used in video streaming, games)."],
+    ["What are IP and MAC addresses?", "IP address is your system’s network address. MAC is a hardware ID of your network interface card."],
+    ["What is DNS?", "DNS stands for Domain Name System. It translates domain names into IP addresses."],
+    ["What are common networking tools?", "Ping, Traceroute, Wireshark, and netstat are common tools for diagnostics and analysis."],
+    ["What is a router vs a switch?", "Routers connect networks (like internet to home), switches connect devices within the same network."],
+    ["What is Python used for?", "Python is a general-purpose language used for web development, AI/ML, automation, data science, and scripting."],
+    ["What are Python libraries for ML?", "scikit-learn, TensorFlow, Keras, PyTorch, pandas, and NumPy are the most used ML libraries."],
+    ["How do I install libraries in Python?", "Use pip in terminal. Example: pip install pandas"],
+    ["What is Jupyter Notebook?", "It's an interactive coding environment often used in data science and ML for mixing code, text, and visuals."],
+    ["What is a good first tech project?", "BMI calculator, to-do list, calculator app, or a portfolio website using HTML/CSS/JS or Streamlit."],
+    ["What is Streamlit?", "Streamlit is a Python library that lets you quickly build interactive web apps for data science and ML projects."],
+    ["What are some beginner ML projects?", "Iris flower classification, diabetes predictor, house price prediction, or movie recommendation systems."],
+    ["What is GitHub?", "GitHub is a platform to store, share, and collaborate on code. It also showcases your work to recruiters."],
+    ["How do I improve my resume?", "Add projects with links, use strong action words, include tech stack, and tailor it for each opportunity."],
+    ["How can I prepare for tech interviews?", "Practice DSA in C++/Python, solve aptitude problems, and revise core subjects like OS, DBMS, CN."],
+    ["How to manage time during placement prep?", "Make a weekly plan balancing coding, aptitude, and project work. Avoid multitasking during focus hours."],
+    ["What if I feel lost in tech?", "It’s normal! Focus on small consistent steps. Build one project at a time and track your growth."],
+    ["Can you motivate me?", "You’re not behind. You’re building your version of success. Small efforts daily → big wins later ✨"],
+    ["What should I do when I’m stuck?", "Break the task into smaller chunks, ask ChatGPT, check Stack Overflow, or take a 10-min break and return with fresh eyes."],
+    ["How do I stay consistent?", "Pick a small daily tech habit: 1 coding Q + 1 project update + 1 thing you learned. Don’t aim for perfect, aim for progress."]
+]
 
-if uploaded_file is not None:
-    df = pd.read_csv(uploaded_file)
-    st.success("✅ FAQ uploaded successfully!")
-    st.dataframe(df)
+df = pd.DataFrame(data, columns=["Question", "Answer"])
+st.dataframe(df)
 
-    question = st.text_input("💬 Ask your question:")
+# User question input
+user_question = st.text_input("💬 Ask a question:")
 
-    if question:
-        with st.spinner("Thinking..."):
-            context = ""
-            for i, row in df.iterrows():
-                context += f"Q: {row['Question']}\nA: {row['Answer']}\n\n"
+if user_question:
+    with st.spinner("Thinking..."):
+        context = ""
+        for i, row in df.iterrows():
+            context += f"Q: {row['Question']}\nA: {row['Answer']}\n\n"
 
-            prompt = f"""You are Nova, an intelligent FAQ assistant.
+        prompt = f"""You are Nova, an intelligent FAQ assistant.
 Use the following FAQ to answer the user's question:
 
 {context}
 
-User's Question: {question}
+User's Question: {user_question}
 Answer:"""
 
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are a helpful assistant."},
-                    {"role": "user", "content": prompt}
-                ]
-            )
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",
+            messages=[
+                {"role": "system", "content": "You are a helpful assistant."},
+                {"role": "user", "content": prompt}
+            ]
+        )
 
-            answer = response['choices'][0]['message']['content'].strip()
-            st.success("🧠 Nova says:")
-            st.write(answer)
-else:
-    st.info("📄 Please upload the FAQ CSV file to begin.")
+        answer = response['choices'][0]['message']['content'].strip()
+        st.success("🧠 Nova says:")
+        st.write(answer)
