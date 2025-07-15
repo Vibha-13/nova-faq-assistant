@@ -3,68 +3,75 @@ import pandas as pd
 import os
 from openai import OpenAI
 from difflib import SequenceMatcher
-from streamlit_mic_recorder import mic_recorder
-import speech_recognition as sr
+import base64
 import tempfile
+import speech_recognition as sr
+from pydub import AudioSegment
+import io
+from streamlit_mic_recorder import mic_recorder
 
-# 🎯 Together AI setup
+# 🎯 API Setup (Together API)
 api_key = st.secrets["together"]["api_key"]
 client = OpenAI(api_key=api_key, base_url="https://api.together.xyz/v1")
 MODEL_NAME = "mistralai/Mixtral-8x7B-Instruct-v0.1"
 
-# 📁 Load FAQ CSV
+# 📁 Auto-load FAQ from local file
 FAQ_FILE = "faqs.csv"
 if not os.path.exists(FAQ_FILE):
-    st.error("🚨 'faqs.csv' not found in app folder.")
+    st.error("🚨 FAQ file not found! Please ensure 'faqs.csv' is in the app folder.")
     st.stop()
 
+# 📚 Load FAQ data
 df = pd.read_csv(FAQ_FILE)
 faq_qa = list(zip(df["Question"].astype(str), df["Answer"].astype(str)))
 
-# 🎨 App config
+# 🎨 Streamlit config
 st.set_page_config(page_title="Nova - Smart FAQ Assistant", page_icon="🤖")
 
 # 📸 Sidebar
 with st.sidebar:
     try:
-        st.image("nova_bot.png", use_container_width=True)
+        st.image("nova_bot.png", caption="Nova, your smart assistant 🤖", use_container_width=True)
     except:
-        st.warning("🖼️ 'nova_bot.png' not found.")
+        st.warning("⚠️ Image not found. Place 'nova_bot.png' in the app folder.")
     st.markdown("### Built by **Solace** & **Nyx** ✨")
-    st.markdown("💬 Ask anything from your FAQ. If not found, Nova asks GPT!")
-    if st.button("🧹 Clear Chat"):
-        st.session_state.chat_history = []
+    st.markdown("---")
+    st.markdown("💡 Ask anything from the FAQ or speak into the mic!")
 
-# 💬 Chat history init
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-
-# 🧠 Title and input
+# 🎙️ Voice Input
 st.title("🤖 Nova - Smart FAQ Assistant")
-st.markdown("Type your question or use the microphone 🎤")
+st.markdown("**Type your question or use the microphone 🎤**")
 
-# 🎤 Microphone input
-audio = mic_recorder(start_prompt="🎤 Click to speak", stop_prompt="⏹️ Stop", key="mic", use_container_width=True)
+audio_bytes = mic_recorder(start_prompt="🎤 Click to record", stop_prompt="🛑 Stop recording", key="recorder")
 
-user_question = st.text_input("💬 Or type your question:")
+user_question = ""
 
-if audio:
-    recognizer = sr.Recognizer()
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio:
-        temp_audio.write(audio["bytes"])
-        temp_audio_path = temp_audio.name
+# 🎧 Process voice input
+if audio_bytes:
+    try:
+        audio = AudioSegment.from_file(io.BytesIO(audio_bytes))
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_wav_file:
+            audio.export(tmp_wav_file.name, format="wav")
+            temp_audio_path = tmp_wav_file.name
 
-    with sr.AudioFile(temp_audio_path) as source:
-        audio_data = recognizer.record(source)
-        try:
-            user_question = recognizer.recognize_google(audio_data)
-            st.success(f"🎤 You said: {user_question}")
-        except sr.UnknownValueError:
-            st.warning("❗ Sorry, I couldn't understand your speech.")
-        except sr.RequestError:
-            st.error("❌ Speech recognition service failed.")
+        recognizer = sr.Recognizer()
+        with sr.AudioFile(temp_audio_path) as source:
+            audio_data = recognizer.record(source)
+            try:
+                user_question = recognizer.recognize_google(audio_data)
+                st.success(f"🗣️ You asked: {user_question}")
+            except sr.UnknownValueError:
+                st.warning("😕 Sorry, couldn't understand your voice.")
+            except sr.RequestError:
+                st.error("❌ Could not connect to Google API.")
+    except Exception as e:
+        st.error("❌ Failed to process audio input.")
+        st.exception(e)
 
-# 🔍 Process question
+# 🧾 Or text input
+user_question = st.text_input("💬 Or type your question:", value=user_question)
+
+# 🧠 Logic
 if user_question:
     def similarity(a, b):
         return SequenceMatcher(None, a.lower(), b.lower()).ratio()
@@ -78,32 +85,22 @@ if user_question:
             best_match = (q, a)
 
     if best_score > 0.6:
-        st.success(f"✅ Matched FAQ (Similarity: {best_score:.2f})")
+        st.success(f"✅ Found a match (Similarity: {best_score:.2f})")
         st.markdown(f"**Q:** {best_match[0]}")
         st.markdown(f"**🧠 Nova says:** {best_match[1]}")
-        st.session_state.chat_history.append((user_question, best_match[1]))
     else:
-        st.info("🤔 No FAQ match. Asking GPT...")
+        st.warning("🤔 Not in FAQ, asking GPT...")
         try:
             response = client.chat.completions.create(
                 model=MODEL_NAME,
                 messages=[
-                    {"role": "system", "content": "You are Nova, a helpful AI FAQ assistant."},
+                    {"role": "system", "content": "You are Nova, a smart, kind FAQ assistant."},
                     {"role": "user", "content": user_question}
                 ]
             )
             answer = response.choices[0].message.content.strip()
             st.markdown("**🤖 Nova says:**")
             st.info(answer)
-            st.session_state.chat_history.append((user_question, answer))
         except Exception as e:
             st.error("❌ GPT failed to respond.")
             st.exception(e)
-
-# 📜 Chat History Display
-if st.session_state.chat_history:
-    st.markdown("---")
-    st.markdown("### 🗂️ Previous Q&A")
-    for i, (q, a) in enumerate(reversed(st.session_state.chat_history[-10:]), 1):
-        st.markdown(f"**Q{i}:** {q}")
-        st.markdown(f"**A{i}:** {a}")
