@@ -9,7 +9,7 @@ import speech_recognition as sr
 from streamlit_js_eval import streamlit_js_eval
 from difflib import SequenceMatcher
 
-client = OpenAI()
+client = OpenAI(api_key=st.secrets["openai"]["api_key"])
 
 st.set_page_config(page_title="Nova - Smart FAQ Assistant", layout="wide")
 
