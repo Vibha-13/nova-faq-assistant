@@ -1,105 +1,91 @@
 import streamlit as st
 import pandas as pd
-import os
+import io
+import speech_recognition as sr
+from mic_recorder_streamlit import mic_recorder
 from openai import OpenAI
 from difflib import SequenceMatcher
-from streamlit_audio_recorder import audio_recorder
-import tempfile
-import speech_recognition as sr
 
-# API Key
-api_key = st.secrets["together"]["api_key"]
-client = OpenAI(api_key=api_key, base_url="https://api.together.xyz/v1")
-MODEL_NAME = "mistralai/Mixtral-8x7B-Instruct-v0.1"
+# Initialize OpenAI client
+client = OpenAI()
 
-# Load FAQ
-FAQ_FILE = "faqs.csv"
-if not os.path.exists(FAQ_FILE):
-    st.error("❌ 'faqs.csv' not found.")
-    st.stop()
+st.set_page_config(page_title="Nova - Smart FAQ Assistant", layout="wide")
 
-df = pd.read_csv(FAQ_FILE)
-faq_qa = list(zip(df["Question"].astype(str), df["Answer"].astype(str)))
+# --- SIDEBAR ---
+st.sidebar.title("🤖 Nova - Smart FAQ Assistant")
+st.sidebar.markdown("Ask me anything about your project, usage, or deployment!")
+if st.sidebar.button("🧹 Clear Chat"):
+    st.session_state.chat_history = []
 
-# Page config
-st.set_page_config(page_title="Nova - Smart FAQ Assistant", page_icon="🤖")
-
-# Sidebar
-with st.sidebar:
-    st.image("nova_bot.png", use_container_width=True, caption="Nova, your smart assistant 🤖")
-    st.markdown("### Built by **Solace** & **Nyx** ✨")
-    st.markdown("---")
-    st.button("🗑️ Clear Chat", on_click=lambda: st.session_state.update({"chat_history": []}))
-
-# Init chat history
+# --- SESSION ---
 if "chat_history" not in st.session_state:
     st.session_state.chat_history = []
 
-# Title + Voice Input
+# --- HEADER ---
 st.title("🤖 Nova - Smart FAQ Assistant")
-st.markdown("Type your question or use the microphone 🎤")
+st.markdown("**Type your question or use the microphone 🎤**")
 
-audio_bytes = audio_recorder(text="🎙️ Speak your question...", icon_size="2x")
-voice_input = ""
+# --- MICROPHONE ---
+audio_bytes = mic_recorder(
+    start_prompt="🎤 Click to Record", 
+    stop_prompt="⏹️ Stop", 
+    key="mic"
+)
+
+user_input = ""
 
 if audio_bytes:
     try:
         recognizer = sr.Recognizer()
-        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as temp_audio_file:
-            temp_audio_file.write(audio_bytes["bytes"])
-            temp_path = temp_audio_file.name
-
-        with sr.AudioFile(temp_path) as source:
-            audio_data = recognizer.record(source)
-            voice_input = recognizer.recognize_google(audio_data)
-
-        st.success(f"🗣️ You said: {voice_input}")
+        with sr.AudioFile(io.BytesIO(audio_bytes["bytes"])) as source:
+            audio = recognizer.record(source)
+        user_input = recognizer.recognize_google(audio)
+        st.success(f"🗣️ You said: {user_input}")
     except Exception as e:
-        st.error("❌ Failed to process audio input.")
-        st.exception(e)
+        st.error(f"❌ Failed to process audio input.\n\n{e}")
 
-# Text input
-user_input = st.text_input("💬 Or type your question:", value=voice_input)
+# --- TEXT INPUT ---
+typed_input = st.text_input("💬 Or type your question:")
+if typed_input:
+    user_input = typed_input
 
+# --- FAQ DB (placeholder example) ---
+faq_data = pd.DataFrame({
+    "question": [
+        "What is Nova?",
+        "How does Nova use AI?",
+        "Can Nova work offline?",
+        "How to deploy Nova?",
+        "Who built Nova?"
+    ],
+    "answer": [
+        "Nova is a Smart FAQ Assistant built using Streamlit and OpenAI.",
+        "Nova uses OpenAI’s GPT API to generate accurate responses to queries.",
+        "Currently, Nova requires an internet connection to use OpenAI APIs.",
+        "You can deploy Nova using Streamlit Cloud or any cloud provider.",
+        "Nova was built by Solace as part of a smart assistant project."
+    ]
+})
+
+# --- Function to find closest question ---
+def get_best_match(query):
+    highest = 0
+    best_answer = "❌ Sorry, I couldn't find a relevant answer."
+    for i, row in faq_data.iterrows():
+        similarity = SequenceMatcher(None, query.lower(), row["question"].lower()).ratio()
+        if similarity > highest and similarity > 0.5:
+            highest = similarity
+            best_answer = row["answer"]
+    return best_answer
+
+# --- PROCESS INPUT ---
 if user_input:
-    def similarity(a, b):
-        return SequenceMatcher(None, a.lower(), b.lower()).ratio()
+    st.session_state.chat_history.append(("🧑 You", user_input))
+    answer = get_best_match(user_input)
+    st.session_state.chat_history.append(("🤖 Nova", answer))
 
-    best_match = None
-    best_score = 0.0
-    for q, a in faq_qa:
-        score = similarity(user_input, q)
-        if score > best_score:
-            best_score = score
-            best_match = (q, a)
-
-    if best_score > 0.6:
-        answer = best_match[1]
-        st.success("✅ Nova found a relevant answer!")
-        st.markdown(f"**Q:** {best_match[0]}")
-        st.markdown(f"**🧠 Nova says:** {answer}")
-    else:
-        st.warning("🤔 No close FAQ match. Asking GPT...")
-        try:
-            response = client.chat.completions.create(
-                model=MODEL_NAME,
-                messages=[
-                    {"role": "system", "content": "You are Nova, a helpful FAQ assistant."},
-                    {"role": "user", "content": user_input}
-                ]
-            )
-            answer = response.choices[0].message.content.strip()
-            st.info(answer)
-        except Exception as e:
-            st.error("❌ GPT API failed.")
-            st.exception(e)
-
-    # Save chat history
-    st.session_state.chat_history.append({"question": user_input, "answer": answer})
-
-# Show chat history
-if st.session_state.chat_history:
-    st.markdown("## 📜 Chat History")
-    for chat in reversed(st.session_state.chat_history[-5:]):
-        st.markdown(f"**Q:** {chat['question']}")
-        st.markdown(f"**A:** {chat['answer']}")
+# --- DISPLAY CHAT ---
+st.divider()
+for sender, msg in st.session_state.chat_history:
+    with st.chat_message(sender):
+        st.write(msg)
