@@ -1,4 +1,4 @@
 streamlit
-openai>=1.0.0
-mic-recorder-streamlit
-Pillow
+openai
+python-dotenv
+
