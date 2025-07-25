@@ -1,120 +1,59 @@
 import streamlit as st
 import openai
-import speech_recognition as sr
-from pydub import AudioSegment
 import os
-import tempfile
-import time
-import pyttsx3
-import random
+from dotenv import load_dotenv
 
-# Configure Page
-st.set_page_config(page_title="Nova AI Assistant", page_icon="🧠", layout="centered")
+# Load environment variable
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Title and Subtitle
-st.markdown("<h1 style='text-align: center;'>🎙️ Nova - Your Voice AI Assistant</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Upload your voice. Nova listens, replies, speaks, and motivates you ✨</p>", unsafe_allow_html=True)
+# Page configuration
+st.set_page_config(page_title="Nova FAQ Assistant 💡", page_icon="🤖", layout="wide")
 
-# Load OpenAI API Key
-openai.api_key = st.secrets.get("OPENAI_API_KEY", "your-api-key-here")  # Replace if not using secrets
+# Sidebar styling
+with st.sidebar:
+    st.title("✨ Nova FAQ Assistant")
+    st.markdown("Ask me anything from your FAQ sheet 💬")
+    st.markdown("💡 AI powered by OpenAI")
+    st.markdown("---")
+    st.markdown("Made with ❤️ by Solace")
 
-# Sidebar - Nova Tips
-st.sidebar.markdown("### 💡 Nova Tips")
-st.sidebar.info("Use clear voice when recording.\n\nSupports `.wav`, `.mp3`, `.m4a` files.\n\nMax 1 min voice for best results.")
-st.sidebar.markdown("---")
+# Chat header
+st.markdown("<h1 style='text-align: center;'>🤖 Nova Chatbot</h1>", unsafe_allow_html=True)
+st.markdown("<p style='text-align: center;'>Ask Nova your doubts, and it'll reply with magic! ✨</p>", unsafe_allow_html=True)
 
-# Motivational Quotes Carousel
-quotes = [
-    "🌟 Keep going, you're doing amazing!",
-    "🔥 Success is built on persistence, not perfection.",
-    "🌈 Storms make trees take deeper roots.",
-    "💫 One small voice can spark big change.",
-    "🚀 You were born to make magic!"
-]
-if st.sidebar.button("✨ Inspire Me!"):
-    st.sidebar.success(random.choice(quotes))
+# Chat history state
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# File uploader
-uploaded_audio = st.file_uploader("🎧 Upload your voice file", type=["wav", "mp3", "m4a"])
+# Display old messages
+for msg in st.session_state.messages:
+    with st.chat_message(msg["role"]):
+        st.markdown(msg["content"])
 
-# Store conversation history
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+# User input
+user_input = st.chat_input("Ask your question here...")
 
-# Text-to-Speech setup
-engine = pyttsx3.init()
-engine.setProperty('rate', 170)
+if user_input:
+    # Add user message
+    st.session_state.messages.append({"role": "user", "content": user_input})
+    with st.chat_message("user"):
+        st.markdown(user_input)
 
-def speak_text(text):
-    """Speak the text using pyttsx3 (works locally)"""
-    engine.say(text)
-    engine.runAndWait()
-
-# Handle upload
-if uploaded_audio:
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_audio_file:
-        audio_format = uploaded_audio.type.split("/")[1]
-        if audio_format == "mp3":
-            sound = AudioSegment.from_mp3(uploaded_audio)
-        elif audio_format == "m4a":
-            sound = AudioSegment.from_file(uploaded_audio, format="m4a")
-        else:
-            sound = AudioSegment.from_file(uploaded_audio)
-
-        sound.export(tmp_audio_file.name, format="wav")
-
-        recognizer = sr.Recognizer()
-        with sr.AudioFile(tmp_audio_file.name) as source:
-            st.info("🔍 Transcribing your voice...")
-            audio_data = recognizer.record(source)
-
+    # Get assistant reply
+    with st.chat_message("assistant"):
         try:
-            user_input = recognizer.recognize_google(audio_data)
-            st.success(f"🗣️ You said: **{user_input}**")
+            response = openai.ChatCompletion.create(
+                model="gpt-3.5-turbo",
+                messages=[
+                    {"role": "system", "content": "You are Nova, a friendly assistant designed to help users with FAQ-style queries. Respond clearly and politely."},
+                    *st.session_state.messages,
+                ],
+                temperature=0.6
+            )
+            assistant_reply = response.choices[0].message["content"]
+        except Exception as e:
+            assistant_reply = "⚠️ Nova couldn't reach OpenAI servers. Try again later."
 
-            with st.spinner("🤖 Nova is thinking..."):
-                response = openai.ChatCompletion.create(
-                    model="gpt-3.5-turbo",
-                    messages=[
-                        {"role": "system", "content": "You are Nova, a friendly and empathetic voice AI assistant."},
-                        {"role": "user", "content": user_input}
-                    ]
-                )
-                ai_reply = response['choices'][0]['message']['content']
-
-                # Emoji response animation
-                st.markdown("### 🤖 Nova replies:")
-                for word in ai_reply.split():
-                    st.markdown(f"{word} ", unsafe_allow_html=True)
-                    time.sleep(0.05)
-
-                # Add to session history
-                st.session_state.chat_history.append((user_input, ai_reply))
-
-                # Nova speaks (if running locally)
-                try:
-                    speak_text(ai_reply)
-                except Exception:
-                    st.warning("🔇 Voice reply not supported on cloud. Run locally to hear Nova.")
-
-        except sr.UnknownValueError:
-            st.error("😕 Couldn't understand your audio. Try speaking more clearly.")
-        except sr.RequestError:
-            st.error("🚫 Speech recognition service unavailable.")
-
-    os.remove(tmp_audio_file.name)
-
-# Chat History Display
-if st.session_state.chat_history:
-    st.markdown("## 💬 Chat History")
-    for i, (q, a) in enumerate(st.session_state.chat_history[::-1], 1):
-        st.markdown(f"**🧍 You:** {q}")
-        st.markdown(f"**🤖 Nova:** {a}")
-        st.markdown("---")
-
-# Download chat history
-if st.session_state.chat_history:
-    if st.button("📥 Download Conversation"):
-        chat_log = "\n\n".join([f"You: {q}\nNova: {a}" for q, a in st.session_state.chat_history])
-        st.download_button("📁 Download .txt", data=chat_log, file_name="nova_conversation.txt")
-
+        st.markdown(assistant_reply)
+        st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
