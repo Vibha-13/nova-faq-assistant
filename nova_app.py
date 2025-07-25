@@ -7,55 +7,72 @@ from pydub import AudioSegment
 import base64
 import tempfile
 
-# Load the .env file (API keys)
+# Load API key from .env
 load_dotenv()
 openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Set page config
-st.set_page_config(
-    page_title="Nova Audio FAQ Assistant 🤖🎧",
-    layout="centered",
-    page_icon="🎙️",
-    initial_sidebar_state="expanded"
-)
+# -------------------- Theme & Sidebar --------------------
+st.set_page_config(page_title="Nova Voice Assistant 🤖", page_icon="🧠", layout="centered")
 
-# Sidebar
 with st.sidebar:
-    st.image("nova_bot.png", width=200)
-    st.markdown("## 👋 Welcome to Nova!")
-    st.markdown("Ask your college FAQs via voice.")
-    st.markdown("#### 💡 Tip: Speak clearly into your mic.")
+    st.image("nova_bot.png", use_column_width=True)
+    st.title("Nova - FAQ Assistant 🤖")
+    st.markdown("Ask your college-related questions using **voice or text**!")
     st.markdown("---")
-    st.markdown("Made with ❤️ by Team Nova")
+    st.write("🎙️ Record your question or 🧠 type below.")
 
-st.title("🎧 Ask Nova: Your FAQ Audio Assistant")
+# -------------------- Emoji Header --------------------
+st.markdown("## 🎓 Nova: Your College FAQ Voice Assistant")
 
-# Audio recording
-audio = audiorecorder("🎤 Record", "🔴 Stop")
+# -------------------- Audio Recording --------------------
+audio = audiorecorder("Click to record 🎙️", "Recording... 🔴")
+
+user_question = ""
 
 if len(audio) > 0:
-    with st.spinner("Transcribing your question..."):
-        # Save to temp WAV file
-        with tempfile.NamedTemporaryFile(suffix=".wav", delete=False) as f:
-            audio.export(f.name, format="wav")
-            temp_path = f.name
+    st.audio(audio.export().read(), format="audio/wav")
 
-        # Send to OpenAI Whisper
-        audio_file = open(temp_path, "rb")
-        transcript = openai.Audio.transcribe("whisper-1", audio_file)
+    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+        audio.export(tmpfile.name, format="wav")
+        tmpfile_path = tmpfile.name
 
-        st.success("✅ Transcription Complete!")
-        st.markdown(f"**📝 You asked:** `{transcript['text']}`")
+    sound = AudioSegment.from_wav(tmpfile_path)
+    sound.export("user_question.mp3", format="mp3")
 
-        # Send to GPT
-        with st.spinner("Fetching Nova's answer..."):
-            completion = openai.ChatCompletion.create(
+    with open("user_question.mp3", "rb") as f:
+        audio_data = f.read()
+
+    st.info("🧠 Converting your voice to text...")
+
+    try:
+        transcript = openai.audio.transcriptions.create(
+            model="whisper-1",
+            file=("user_question.mp3", audio_data)
+        )
+        user_question = transcript.text
+        st.success(f"🗣️ You asked: **{user_question}**")
+    except Exception as e:
+        st.error("❌ Error transcribing audio: " + str(e))
+
+# -------------------- Text Input Fallback --------------------
+st.markdown("### Or type your question below:")
+typed_input = st.text_input("💬 Your question here:")
+
+if typed_input:
+    user_question = typed_input
+
+# -------------------- Process with GPT --------------------
+if user_question:
+    with st.spinner("Nova is thinking... 🧠"):
+        try:
+            response = openai.chat.completions.create(
                 model="gpt-3.5-turbo",
                 messages=[
-                    {"role": "system", "content": "You're Nova, a helpful assistant answering college FAQ questions."},
-                    {"role": "user", "content": transcript["text"]}
+                    {"role": "system", "content": "You are Nova, a helpful college assistant. Keep responses clear and friendly."},
+                    {"role": "user", "content": user_question}
                 ]
             )
-            answer = completion.choices[0].message["content"]
-            st.markdown("### 🧠 Nova says:")
-            st.success(answer)
+            reply = response.choices[0].message.content
+            st.markdown(f"### 📢 Nova says:\n{reply}")
+        except Exception as e:
+            st.error("❌ Error from OpenAI: " + str(e))
