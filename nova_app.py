@@ -1,59 +1,70 @@
 import streamlit as st
 import openai
 import os
-from dotenv import load_dotenv
+import speech_recognition as sr
+from io import BytesIO
+from PIL import Image
+import base64
 
-# Load environment variable
-load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Load API key from Streamlit secrets
+openai.api_key = st.secrets["openai"]["api_key"]
 
-# Page configuration
-st.set_page_config(page_title="Nova FAQ Assistant 💡", page_icon="🤖", layout="wide")
+# Page settings
+st.set_page_config(page_title="Nova - FAQ Assistant 💬", page_icon="🤖", layout="wide")
 
-# Sidebar styling
+# Sidebar with Nova image
 with st.sidebar:
-    st.title("✨ Nova FAQ Assistant")
-    st.markdown("Ask me anything from your FAQ sheet 💬")
-    st.markdown("💡 AI powered by OpenAI")
-    st.markdown("---")
-    st.markdown("Made with ❤️ by Solace")
+    st.image("nova_bot.png", width=150)
+    st.title("✨ Nova Assistant")
+    st.markdown("Your friendly FAQ chatbot 💡")
+    st.markdown("Ask me anything from your syllabus or training notes!")
 
-# Chat header
-st.markdown("<h1 style='text-align: center;'>🤖 Nova Chatbot</h1>", unsafe_allow_html=True)
-st.markdown("<p style='text-align: center;'>Ask Nova your doubts, and it'll reply with magic! ✨</p>", unsafe_allow_html=True)
+# Title
+st.markdown("<h2 style='text-align:center;'>👩‍💻 Nova - Your FAQ Assistant</h2>", unsafe_allow_html=True)
 
-# Chat history state
-if "messages" not in st.session_state:
-    st.session_state.messages = []
+# Initialize session state
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-# Display old messages
-for msg in st.session_state.messages:
-    with st.chat_message(msg["role"]):
-        st.markdown(msg["content"])
+# Input box
+user_input = st.text_input("🗨️ Ask Nova a question...", placeholder="Type your question here...")
 
-# User input
-user_input = st.chat_input("Ask your question here...")
+# Speech recognition (optional)
+if st.button("🎤 Use Voice"):
+    recognizer = sr.Recognizer()
+    with sr.Microphone() as source:
+        st.info("Listening... Speak now.")
+        audio = recognizer.listen(source, timeout=5)
+    try:
+        user_input = recognizer.recognize_google(audio)
+        st.success(f"You said: {user_input}")
+    except sr.UnknownValueError:
+        st.error("Couldn't understand audio.")
+    except sr.RequestError:
+        st.error("Speech recognition service is unavailable.")
 
+# Handle user query
 if user_input:
-    # Add user message
-    st.session_state.messages.append({"role": "user", "content": user_input})
-    with st.chat_message("user"):
-        st.markdown(user_input)
+    # Add user message to chat history
+    st.session_state.chat_history.append(("🧑‍💻 You", user_input))
+    
+    try:
+        # Call OpenAI
+        response = openai.ChatCompletion.create(
+            model="gpt-3.5-turbo",  # or gpt-4 if you have access
+            messages=[
+                {"role": "system", "content": "You are Nova, a helpful educational chatbot."},
+                {"role": "user", "content": user_input}
+            ]
+        )
+        reply = response["choices"][0]["message"]["content"]
+        st.session_state.chat_history.append(("🤖 Nova", reply))
 
-    # Get assistant reply
-    with st.chat_message("assistant"):
-        try:
-            response = openai.ChatCompletion.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are Nova, a friendly assistant designed to help users with FAQ-style queries. Respond clearly and politely."},
-                    *st.session_state.messages,
-                ],
-                temperature=0.6
-            )
-            assistant_reply = response.choices[0].message["content"]
-        except Exception as e:
-            assistant_reply = "⚠️ Nova couldn't reach OpenAI servers. Try again later."
+    except Exception as e:
+        st.session_state.chat_history.append(("🤖 Nova", "⚠️ Nova couldn't reach OpenAI servers. Try again later."))
 
-        st.markdown(assistant_reply)
-        st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
+# Display chat history
+st.markdown("### 📜 Chat History")
+for sender, message in st.session_state.chat_history[::-1]:
+    with st.chat_message(sender):
+        st.markdown(message)
