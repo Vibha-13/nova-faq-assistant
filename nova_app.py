@@ -3,6 +3,9 @@ import openai
 import base64
 from pathlib import Path
 
+# Set page config
+st.set_page_config(page_title="Nova - FAQ Assistant", page_icon="🤖", layout="centered")
+
 # Optional audio recorder support
 try:
     from streamlit_audiorecorder import audiorecorder
@@ -13,8 +16,6 @@ except ModuleNotFoundError:
 # Set up your OpenAI API key
 openai.api_key = st.secrets["openai"]["api_key"]
 
-# Set page config
-st.set_page_config(page_title="Nova - FAQ Assistant", page_icon="🤖", layout="centered")
 
 # Sidebar with branding
 st.sidebar.image("nova_bot.png", width=100)
