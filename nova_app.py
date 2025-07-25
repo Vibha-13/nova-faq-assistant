@@ -2,7 +2,7 @@ import streamlit as st
 import openai
 import os
 from dotenv import load_dotenv
-from audiorecorder import audiorecorder
+from streamlit_audiorecorder import audiorecorder
 from pydub import AudioSegment
 import base64
 import tempfile
