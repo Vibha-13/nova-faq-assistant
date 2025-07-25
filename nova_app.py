@@ -1,78 +1,62 @@
 import streamlit as st
 import openai
-import os
-from dotenv import load_dotenv
-from streamlit_audiorecorder import audiorecorder
-from pydub import AudioSegment
 import base64
-import tempfile
+from pathlib import Path
 
-# Load API key from .env
-load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY")
+# Optional audio recorder support
+try:
+    from streamlit_audiorecorder import audiorecorder
+except ModuleNotFoundError:
+    audiorecorder = None
+    st.warning("⚠️ Audio recording not available. This feature is optional.")
 
-# -------------------- Theme & Sidebar --------------------
-st.set_page_config(page_title="Nova Voice Assistant 🤖", page_icon="🧠", layout="centered")
+# Set up your OpenAI API key
+openai.api_key = st.secrets["openai"]["api_key"]
 
-with st.sidebar:
-    st.image("nova_bot.png", use_column_width=True)
-    st.title("Nova - FAQ Assistant 🤖")
-    st.markdown("Ask your college-related questions using **voice or text**!")
-    st.markdown("---")
-    st.write("🎙️ Record your question or 🧠 type below.")
+# Set page config
+st.set_page_config(page_title="Nova - FAQ Assistant", page_icon="🤖", layout="centered")
 
-# -------------------- Emoji Header --------------------
-st.markdown("## 🎓 Nova: Your College FAQ Voice Assistant")
+# Sidebar with branding
+st.sidebar.image("nova_bot.png", width=100)
+st.sidebar.title("Nova - Audio FAQ Assistant")
+st.sidebar.markdown("Ask me your college FAQs 👩🏻‍💻🎓")
 
-# -------------------- Audio Recording --------------------
-audio = audiorecorder("Click to record 🎙️", "Recording... 🔴")
+# App title
+st.title("🎙️ Talk to Nova")
+st.markdown("Record your question, and I'll do my best to help!")
 
-user_question = ""
+# Record audio if available
+audio_bytes = None
+if audiorecorder:
+    audio_bytes = audiorecorder("🎤 Record", "⏹️ Stop")
+else:
+    st.info("You can still use the chat if mic input is disabled.")
 
-if len(audio) > 0:
-    st.audio(audio.export().read(), format="audio/wav")
+# Simulate transcribing (placeholder for real speech-to-text)
+def dummy_transcribe(audio_bytes):
+    # In real app, replace with OpenAI Whisper or other STT model
+    return "What is the eligibility for campus placement?"
 
-    with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
-        audio.export(tmpfile.name, format="wav")
-        tmpfile_path = tmpfile.name
+# Simulate AI answer (replace with actual API call or fine-tuned model)
+def get_answer(query):
+    response = openai.ChatCompletion.create(
+        model="gpt-3.5-turbo",  # Or gpt-4 if available
+        messages=[
+            {"role": "system", "content": "You are Nova, a helpful assistant for college FAQs."},
+            {"role": "user", "content": query}
+        ]
+    )
+    return response["choices"][0]["message"]["content"]
 
-    sound = AudioSegment.from_wav(tmpfile_path)
-    sound.export("user_question.mp3", format="mp3")
+# Process audio
+if audio_bytes:
+    st.audio(audio_bytes, format="audio/wav")
+    st.write("Transcribing...")
+    query = dummy_transcribe(audio_bytes)
+    st.write(f"**You asked:** {query}")
+    with st.spinner("Nova is thinking..."):
+        answer = get_answer(query)
+        st.success(answer)
+else:
+    st.markdown("⬆️ Press the button to start recording your question.")
 
-    with open("user_question.mp3", "rb") as f:
-        audio_data = f.read()
-
-    st.info("🧠 Converting your voice to text...")
-
-    try:
-        transcript = openai.audio.transcriptions.create(
-            model="whisper-1",
-            file=("user_question.mp3", audio_data)
-        )
-        user_question = transcript.text
-        st.success(f"🗣️ You asked: **{user_question}**")
-    except Exception as e:
-        st.error("❌ Error transcribing audio: " + str(e))
-
-# -------------------- Text Input Fallback --------------------
-st.markdown("### Or type your question below:")
-typed_input = st.text_input("💬 Your question here:")
-
-if typed_input:
-    user_question = typed_input
-
-# -------------------- Process with GPT --------------------
-if user_question:
-    with st.spinner("Nova is thinking... 🧠"):
-        try:
-            response = openai.chat.completions.create(
-                model="gpt-3.5-turbo",
-                messages=[
-                    {"role": "system", "content": "You are Nova, a helpful college assistant. Keep responses clear and friendly."},
-                    {"role": "user", "content": user_question}
-                ]
-            )
-            reply = response.choices[0].message.content
-            st.markdown(f"### 📢 Nova says:\n{reply}")
-        except Exception as e:
-            st.error("❌ Error from OpenAI: " + str(e))
