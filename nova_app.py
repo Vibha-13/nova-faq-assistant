@@ -1,33 +1,42 @@
 import streamlit as st
-import openai
-import os
+from openai import OpenAI
 from dotenv import load_dotenv
+import os
 
-# Load OpenAI API key
+# Load environment variables
 load_dotenv()
-openai.api_key = os.getenv("OPENAI_API_KEY") or st.secrets["openai"]["api_key"]
+api_key = os.getenv("OPENAI_API_KEY")
 
-# Page config and branding
-st.set_page_config(page_title="Nova – FAQ Assistant", page_icon="🤖", layout="centered")
-st.sidebar.image("nova_bot.png", use_column_width=True)
-st.sidebar.title("Nova – College FAQ Bot")
-st.title("Nova – Ask your college FAQs 💬")
+# Set up OpenAI client
+client = OpenAI(api_key=api_key)
 
-# Function to query OpenAI
-def ask_nova(prompt: str) -> str:
-    response = openai.ChatCompletion.create(
+# Define assistant prompt
+assistant_prompt = """
+You are Nova, a helpful virtual assistant built to answer questions related to college FAQs, rules, facilities, placement procedures, and general academic queries.
+Always answer concisely, helpfully, and in a friendly manner.
+If you don’t know the answer, ask the user to reach out to the official support team.
+"""
+
+# Function to get response from Nova
+def ask_nova(user_input):
+    response = client.chat.completions.create(
         model="gpt-3.5-turbo",
         messages=[
-            {"role": "system", "content": "You are Nova, a helpful assistant for college related queries."},
-            {"role": "user", "content": prompt}
-        ],
+            {"role": "system", "content": assistant_prompt},
+            {"role": "user", "content": user_input}
+        ]
     )
-    return response.choices[0].message["content"].strip()
+    return response.choices[0].message.content
 
-# Text input section
-user_input = st.text_input("Type your question here and hit Enter:")
+# Streamlit app
+st.set_page_config(page_title="Nova FAQ Assistant", page_icon="🤖")
+st.title("📚 Nova - College FAQ Assistant")
+st.write("Ask me anything about your college rules, facilities, or placements!")
+
+user_input = st.text_input("💬 Type your question here:")
+
 if user_input:
     with st.spinner("Nova is thinking..."):
         answer = ask_nova(user_input)
-    st.markdown("**Nova says:**")
-    st.write(answer)
+        st.success("✅ Answer from Nova:")
+        st.write(answer)
