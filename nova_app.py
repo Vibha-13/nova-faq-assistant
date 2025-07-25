@@ -3,40 +3,54 @@ from openai import OpenAI
 from dotenv import load_dotenv
 import os
 
-# Load environment variables
+# Load API key
 load_dotenv()
 api_key = os.getenv("OPENAI_API_KEY")
 
-# Set up OpenAI client
+# Error if API key is missing
+if not api_key:
+    st.error("🔐 OPENAI_API_KEY not found in your .env file.")
+    st.stop()
+
+# Create OpenAI client
 client = OpenAI(api_key=api_key)
 
-# Define assistant prompt
-assistant_prompt = """
-You are Nova, a helpful virtual assistant built to answer questions related to college FAQs, rules, facilities, placement procedures, and general academic queries.
-Always answer concisely, helpfully, and in a friendly manner.
-If you don’t know the answer, ask the user to reach out to the official support team.
-"""
-
-# Function to get response from Nova
-def ask_nova(user_input):
+# Function to query Nova
+def ask_nova(prompt):
     response = client.chat.completions.create(
-        model="gpt-3.5-turbo",
+        model="gpt-3.5-turbo",  # or "gpt-4" if you have access
         messages=[
-            {"role": "system", "content": assistant_prompt},
-            {"role": "user", "content": user_input}
-        ]
+            {"role": "system", "content": "You are Nova ✨, a helpful FAQ assistant. Respond with friendly tone and use emojis."},
+            {"role": "user", "content": prompt}
+        ],
+        temperature=0.7
     )
-    return response.choices[0].message.content
+    return response.choices[0].message.content.strip()
 
-# Streamlit app
-st.set_page_config(page_title="Nova FAQ Assistant", page_icon="🤖")
-st.title("📚 Nova - College FAQ Assistant")
-st.write("Ask me anything about your college rules, facilities, or placements!")
+# --- Streamlit App Layout ---
+st.set_page_config(page_title="Nova AI Assistant", page_icon="🤖", layout="wide")
 
-user_input = st.text_input("💬 Type your question here:")
+# Sidebar with logo
+with st.sidebar:
+    st.image("nova_bot.png", width=160)
+    st.markdown("## 💫 Nova – FAQ Bot")
+    st.markdown("Ask me anything about your project!")
+    st.markdown("---")
+    st.markdown("Made with ❤️ by Solace")
 
+# Main area
+st.title("✨ Nova – Your AI FAQ Assistant")
+st.markdown("Ask me your questions below and I’ll reply with a smile 😊")
+
+# Multi-line user input
+user_input = st.text_area("🔎 Your question:", placeholder="e.g., How to deploy the chatbot on GitHub Pages?", height=100)
+
+# On submit
 if user_input:
-    with st.spinner("Nova is thinking..."):
-        answer = ask_nova(user_input)
-        st.success("✅ Answer from Nova:")
-        st.write(answer)
+    with st.spinner("Nova is thinking... 💭"):
+        try:
+            response = ask_nova(user_input)
+            st.success("✅ Nova says:")
+            st.markdown(f"**{response}**")
+        except Exception as e:
+            st.error(f"⚠️ Oops! Error: {e}")
