@@ -1,4 +1,5 @@
-streamlit
-openai
-streamlit-audio
-python-dotenv
+streamlit==1.35.0
+openai==1.30.1
+python-dotenv==1.0.1
+pydub==0.25.1
+audiorecorder==0.1.4
