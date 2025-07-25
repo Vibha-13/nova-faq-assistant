@@ -1,70 +1,69 @@
 import streamlit as st
+from audio_recorder_streamlit import audio_recorder
 import openai
+import tempfile
+from dotenv import load_dotenv
 import os
-import speech_recognition as sr
-from io import BytesIO
-from PIL import Image
-import base64
 
-# Load API key from Streamlit secrets
-openai.api_key = st.secrets["openai"]["api_key"]
+load_dotenv()
+openai.api_key = os.getenv("OPENAI_API_KEY")
 
-# Page settings
-st.set_page_config(page_title="Nova - FAQ Assistant 💬", page_icon="🤖", layout="wide")
 
-# Sidebar with Nova image
-with st.sidebar:
-    st.image("nova_bot.png", width=150)
-    st.title("✨ Nova Assistant")
-    st.markdown("Your friendly FAQ chatbot 💡")
-    st.markdown("Ask me anything from your syllabus or training notes!")
+# --- SETUP ---
+st.set_page_config(page_title="Nova - FAQ Assistant", layout="centered")
 
-# Title
-st.markdown("<h2 style='text-align:center;'>👩‍💻 Nova - Your FAQ Assistant</h2>", unsafe_allow_html=True)
+# --- SIDEBAR ---
+st.sidebar.image("nova_bot.png", use_column_width=True)
+st.sidebar.title("Nova - FAQ Chatbot")
+st.sidebar.markdown("Ask anything related to our services ✨")
+st.sidebar.markdown("Voice or Text input supported 🎤⌨️")
 
-# Initialize session state
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
+# --- MAIN TITLE ---
+st.title("🎙️ Nova - Voice FAQ Assistant")
 
-# Input box
-user_input = st.text_input("🗨️ Ask Nova a question...", placeholder="Type your question here...")
+# --- AUDIO RECORDER ---
+audio_bytes = audio_recorder(
+    text="Click to record your question 🎤",
+    recording_color="#f65f5f",
+    neutral_color="#6aa36f",
+    icon_size="3x"
+)
 
-# Speech recognition (optional)
-if st.button("🎤 Use Voice"):
-    recognizer = sr.Recognizer()
-    with sr.Microphone() as source:
-        st.info("Listening... Speak now.")
-        audio = recognizer.listen(source, timeout=5)
-    try:
-        user_input = recognizer.recognize_google(audio)
-        st.success(f"You said: {user_input}")
-    except sr.UnknownValueError:
-        st.error("Couldn't understand audio.")
-    except sr.RequestError:
-        st.error("Speech recognition service is unavailable.")
+# --- TEXT FALLBACK ---
+st.markdown("### Or just type your question below ⌨️")
+text_input = st.text_input("Enter your question here:")
 
-# Handle user query
-if user_input:
-    # Add user message to chat history
-    st.session_state.chat_history.append(("🧑‍💻 You", user_input))
+# --- HANDLE AUDIO OR TEXT INPUT ---
+query = None
+
+if audio_bytes:
+    st.audio(audio_bytes, format="audio/wav")
     
-    try:
-        # Call OpenAI
+    with st.spinner("Transcribing your voice..."):
+        # Save the audio to a temp file
+        with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmpfile:
+            tmpfile.write(audio_bytes)
+            tmpfile_path = tmpfile.name
+
+        # Transcribe using Whisper
+        with open(tmpfile_path, "rb") as audio_file:
+            transcript = openai.Audio.transcribe("whisper-1", audio_file)
+
+        query = transcript["text"]
+        st.markdown("#### 📝 Transcription:")
+        st.write(query)
+
+elif text_input:
+    query = text_input
+
+# --- CALL OPENAI API IF QUERY EXISTS ---
+if query:
+    with st.spinner("Nova is thinking... 💭"):
         response = openai.ChatCompletion.create(
-            model="gpt-3.5-turbo",  # or gpt-4 if you have access
-            messages=[
-                {"role": "system", "content": "You are Nova, a helpful educational chatbot."},
-                {"role": "user", "content": user_input}
-            ]
+            model="gpt-3.5-turbo",
+            messages=[{"role": "user", "content": query}]
         )
-        reply = response["choices"][0]["message"]["content"]
-        st.session_state.chat_history.append(("🤖 Nova", reply))
-
-    except Exception as e:
-        st.session_state.chat_history.append(("🤖 Nova", "⚠️ Nova couldn't reach OpenAI servers. Try again later."))
-
-# Display chat history
-st.markdown("### 📜 Chat History")
-for sender, message in st.session_state.chat_history[::-1]:
-    with st.chat_message(sender):
-        st.markdown(message)
+        answer = response["choices"][0]["message"]["content"]
+        
+    st.markdown("### 🤖 Nova says:")
+    st.write(answer)
