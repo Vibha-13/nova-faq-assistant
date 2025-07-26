@@ -1,71 +1,76 @@
 import streamlit as st
 import requests
-import os
 from PIL import Image
 
-# Load logo if available
-if os.path.exists("nova_bot.png"):
-    st.image("nova_bot.png", width=120)
+# Title and icon
+st.set_page_config(page_title="Nova GPT FAQ Assistant", page_icon="🤖")
 
-st.markdown("<h1 style='text-align: center;'>🧠 Nova - Your FAQ Assistant</h1>", unsafe_allow_html=True)
-st.markdown("#### Ask anything related to your project. Nova answers with brains and vibe 💫")
+# Load bot image in sidebar
+with st.sidebar:
+    st.image("assets/nova_bot.png", width=200)
+    st.title("✨ Nova GPT FAQ Assistant")
+    mood = st.selectbox("Choose Nova's Mood 💫", ["Friendly", "Professional", "Sassy"])
+    st.markdown("---")
+    if st.button("🧹 Clear Chat"):
+        st.session_state.chat_history = []
 
-# Sidebar for mood
-st.sidebar.title("🎭 Nova's Mood")
-mood = st.sidebar.radio("Choose Nova’s mode", ("friendly", "professional", "funny"))
-
-# Clear chat button
-if "chat_history" not in st.session_state:
-    st.session_state.chat_history = []
-if st.sidebar.button("🧹 Clear Chat"):
-    st.session_state.chat_history = []
-
-# Form for user input
-with st.form("chat_input", clear_on_submit=True):
-    user_input = st.text_input("💬 Type your question:")
-    submitted = st.form_submit_button("Send")
-
-# System messages based on mood
+# System prompt based on mood
 system_messages = {
-    "friendly": "You are Nova, a warm and friendly assistant. Reply with kindness and sprinkle emojis.",
-    "professional": "You are Nova, a professional assistant who gives clear and concise project answers.",
-    "funny": "You are Nova, a witty assistant who answers with humor but still helpful."
+    "Friendly": "You're Nova, a warm, friendly, emoji-using AI who answers questions helpfully and with a smile. Keep it light and cute!",
+    "Professional": "You're Nova, a calm, professional assistant that explains concepts clearly and concisely.",
+    "Sassy": "You're Nova, a bold and sassy assistant who gives answers with confidence and flair, with a sprinkle of sarcasm when needed."
 }
 
-# Function to get response from OpenRouter API
-def get_nova_reply(prompt, mood):
-    try:
-        headers = {
-            "Authorization": f"Bearer {st.secrets['OPENROUTER_API_KEY']}",
-            "Content-Type": "application/json"
-        }
+# Set up OpenRouter API key (stored safely in secrets or env var)
+API_KEY = st.secrets.get("OPENROUTER_API_KEY", "your-api-key-here")
+API_URL = "https://openrouter.ai/api/v1/chat/completions"
 
-        payload = {
-            "model": "openai/gpt-3.5-turbo",  # or gpt-4 if you have access
-            "messages": [
-                {"role": "system", "content": system_messages[mood]},
-                {"role": "user", "content": prompt}
-            ],
-            "temperature": 0.7,
-            "max_tokens": 300
-        }
+# Initialize chat history
+if "chat_history" not in st.session_state:
+    st.session_state.chat_history = []
 
-        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()["choices"][0]["message"]["content"].strip()
+# Chat UI
+st.title("💬 Chat with Nova!")
+user_input = st.chat_input("Ask me anything...")
 
-    except Exception as e:
-        return f"⚠️ Nova broke a wire: {str(e)}"
-
-# Chat logic
-if submitted and user_input:
+if user_input:
+    # Add user message to history
     st.session_state.chat_history.append(("user", user_input))
-    nova_reply = get_nova_reply(user_input, mood)
+
+    # Build full chat messages
+    messages = [{"role": "system", "content": system_messages[mood]}]
+    for sender, msg in st.session_state.chat_history:
+        role = "user" if sender == "user" else "assistant"
+        messages.append({"role": role, "content": msg})
+
+    # Prepare request payload
+    payload = {
+        "model": "openai/gpt-3.5-turbo",  # or openrouter/gpt-4
+        "messages": messages,
+        "temperature": 0.7,
+        "max_tokens": 300
+    }
+
+    # Send request to OpenRouter
+    headers = {
+        "Authorization": f"Bearer {API_KEY}",
+        "Content-Type": "application/json"
+    }
+    response = requests.post(API_URL, headers=headers, json=payload)
+
+    if response.status_code == 200:
+        nova_reply = response.json()["choices"][0]["message"]["content"]
+    else:
+        nova_reply = "Oops! Nova hit a snag. Please try again."
+
+    # Add Nova's reply to chat history
     st.session_state.chat_history.append(("nova", nova_reply))
 
-# Display chat
+# Display chat history
 for sender, msg in st.session_state.chat_history:
     if sender == "user":
-        st.markdown(f"👤 **You:** {msg}")
+        with st.chat_message("user"):
+            st.markdown(msg)
     else:
-        st.markdown(f"🧠 **Nova:** {msg}")
+        with st.chat_message("assistant"):
+            st.markdown(msg)
