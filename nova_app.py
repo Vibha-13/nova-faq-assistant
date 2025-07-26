@@ -1,73 +1,94 @@
 import streamlit as st
+import random
 from openai import OpenAI
-import os
 
-# Set OpenRouter endpoint
-client = OpenAI(
-    base_url="https://openrouter.ai/api/v1",
-    api_key=st.secrets["OPENROUTER_API_KEY"]
-)
+# Initialize OpenAI client
+client = OpenAI()
 
-# Set Streamlit page config
-st.set_page_config(
-    page_title="🧠 Nova FAQ Assistant",
-    layout="centered",
-    page_icon="🧠"
-)
+st.set_page_config(page_title="Nova FAQ Assistant", page_icon="🤖")
 
-# Sidebar with branding image
+# ---------------------------------------------
+# 🎨 Custom CSS for Styling
+st.markdown("""
+    <style>
+        .stChatMessage {
+            background-color: #f0f2f6;
+            padding: 10px;
+            border-radius: 10px;
+            margin-bottom: 10px;
+        }
+        .stTextInput > div > input {
+            background-color: #ffffff;
+            border: 1px solid #ccc;
+        }
+        .block-container {
+            padding-top: 2rem;
+        }
+        span.dots::after {
+            content: '...';
+            animation: blink 1s infinite;
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 0; }
+            50% { opacity: 1; }
+        }
+    </style>
+""", unsafe_allow_html=True)
+
+# ---------------------------------------------
+# 🌟 Sidebar with Nova Logo + Greeting
 st.sidebar.image("nova_bot.png", use_container_width=True)
-st.sidebar.title("🧠 Nova Assistant")
-st.sidebar.markdown("Ask me anything about your project!")
+st.sidebar.markdown("👋 **Hello! I'm Nova**\n\nAsk me anything related to your project, and I’ll help you out!")
 
-# Chat input area
-st.title("💬 Nova FAQ Assistant")
-st.markdown("Ask your questions below:")
+# 💡 Random Tip of the Day
+tips = [
+    "Keep your README.md updated – it's your project’s CV!",
+    "Document your functions with clear comments 💬",
+    "Push code often – Git is your friend! 💾",
+    "Break down big problems into small tasks 🧩",
+    "Don't forget to test your app regularly! 🧪"
+]
+st.sidebar.markdown(f"💡 **Tip of the Day:**\n> {random.choice(tips)}")
 
-# Initialize message history
+# 🧹 Clear Chat Option
+if st.sidebar.button("🧹 Clear Chat"):
+    st.session_state.messages = [{"role": "system", "content": "You are Nova, a helpful assistant for answering FAQ about the project."}]
+    st.experimental_rerun()
+
+# ---------------------------------------------
+# 🧠 Chat Message Memory
 if "messages" not in st.session_state:
     st.session_state.messages = [
-        {
-            "role": "system",
-            "content": "You are Nova, a smart and friendly FAQ assistant for student projects. Answer clearly and helpfully."
-        }
+        {"role": "system", "content": "You are Nova, a helpful assistant for answering FAQ about the project."}
     ]
 
-# Show chat history
-for msg in st.session_state.messages[1:]:  # skip system message
+# 💬 Display past messages
+for msg in st.session_state.messages[1:]:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# Handle user input
-prompt = st.chat_input("Enter your question below:")
-
-if prompt:
+# ---------------------------------------------
+# 🎤 Chat Input
+if prompt := st.chat_input("Ask your question here..."):
     st.session_state.messages.append({"role": "user", "content": prompt})
     with st.chat_message("user"):
         st.markdown(prompt)
 
-    # Show thinking message
+    # ⏳ Typing animation
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
-        message_placeholder.markdown("⏳ Nova is thinking...")
+        message_placeholder.markdown("🤖 Nova is typing<span class='dots'>.</span>", unsafe_allow_html=True)
 
-    try:
-        response = client.chat.completions.create(
-            model="meta-llama/llama-3-8b-instruct",
-            messages=st.session_state.messages,
-            stream=True,
-        )
+        # Call OpenAI API
+        try:
+            response = client.chat.completions.create(
+                model="gpt-4",
+                messages=st.session_state.messages,
+                temperature=0.6,
+            )
+            assistant_reply = response.choices[0].message.content
+        except Exception as e:
+            assistant_reply = f"⚠️ Something went wrong: {e}"
 
-        full_response = ""
-        for chunk in response:
-            if chunk.choices[0].delta.content:
-                full_response += chunk.choices[0].delta.content
-                message_placeholder.markdown(full_response)
-
-        st.session_state.messages.append({
-            "role": "assistant",
-            "content": full_response
-        })
-
-    except Exception as e:
-        message_placeholder.markdown(f"❌ API Error:\n\n{e}")
+        message_placeholder.markdown(assistant_reply)
+        st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
