@@ -1,99 +1,119 @@
 import streamlit as st
-import random
-from openai import OpenAI
+import requests
 
-# Initialize OpenAI client
-client = OpenAI(
-    api_key = st.secrets["OPENROUTER_API_KEY"],
-    base_url="https://openrouter.ai/api/v1"
-)
+st.set_page_config(page_title="Nova AI Assistant", layout="wide")
 
+# --- Sidebar ---
+with st.sidebar:
+    st.image("nova_bot.png", width=100, caption="Nova ☄️")
+    st.title("Nova AI Assistant")
+    st.markdown("Talk to a smart bot powered by **OpenRouter** + ChatGPT & more 🤖")
 
-st.set_page_config(page_title="Nova FAQ Assistant", page_icon="🤖")
+    model_choice = st.selectbox(
+        "Choose a model",
+        options=["gpt-3.5-turbo", "gpt-4", "mistral", "llama3-8b", "gemma-7b-it"],
+        index=0,
+    )
 
-# ---------------------------------------------
-# 🎨 Custom CSS for Styling
-st.markdown("""
-    <style>
-        .stChatMessage {
-            background-color: #f0f2f6;
-            padding: 10px;
-            border-radius: 10px;
-            margin-bottom: 10px;
-        }
-        .stTextInput > div > input {
-            background-color: #ffffff;
-            border: 1px solid #ccc;
-        }
-        .block-container {
-            padding-top: 2rem;
-        }
-        span.dots::after {
-            content: '...';
-            animation: blink 1s infinite;
-        }
-        @keyframes blink {
-            0%, 100% { opacity: 0; }
-            50% { opacity: 1; }
-        }
-    </style>
-""", unsafe_allow_html=True)
+    dark_mode = st.toggle("🌙 Dark Mode")
+    if dark_mode:
+        st.markdown(
+            """
+            <style>
+            body, .stApp {
+                background-color: #0e1117;
+                color: #FAFAFA;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
 
-# ---------------------------------------------
-# 🌟 Sidebar with Nova Logo + Greeting
-st.sidebar.image("nova_bot.png", use_container_width=True)
-st.sidebar.markdown("👋 **Hello! I'm Nova**\n\nAsk me anything related to your project, and I’ll help you out!")
+    if st.button("🧼 Clear Chat"):
+        st.session_state.messages = []
+        st.session_state.count = 0
+        st.experimental_rerun()
 
-# 💡 Random Tip of the Day
-tips = [
-    "Keep your README.md updated – it's your project’s CV!",
-    "Document your functions with clear comments 💬",
-    "Push code often – Git is your friend! 💾",
-    "Break down big problems into small tasks 🧩",
-    "Don't forget to test your app regularly! 🧪"
-]
-st.sidebar.markdown(f"💡 **Tip of the Day:**\n> {random.choice(tips)}")
-
-# 🧹 Clear Chat Option
-if st.sidebar.button("🧹 Clear Chat"):
-    st.session_state.messages = [{"role": "system", "content": "You are Nova, a helpful assistant for answering FAQ about the project."}]
-    st.experimental_rerun()
-
-# ---------------------------------------------
-# 🧠 Chat Message Memory
+# --- Session State Init ---
 if "messages" not in st.session_state:
-    st.session_state.messages = [
-        {"role": "system", "content": "You are Nova, a helpful assistant for answering FAQ about the project."}
-    ]
+    st.session_state.messages = []
 
-# 💬 Display past messages
-for msg in st.session_state.messages[1:]:
+if "count" not in st.session_state:
+    st.session_state.count = 0
+
+# --- Title ---
+st.title("💬 Nova Chatbot")
+st.markdown("Ask anything, and Nova will help you out!")
+
+# --- Prompt Templates ---
+col1, col2, col3 = st.columns(3)
+with col1:
+    if st.button("📝 Summarize"):
+        st.session_state.prompt = "Can you summarize this?"
+with col2:
+    if st.button("✍️ Rephrase"):
+        st.session_state.prompt = "Please rephrase this in a better way:"
+with col3:
+    if st.button("🧹 Fix Grammar"):
+        st.session_state.prompt = "Correct the grammar in this sentence:"
+
+# --- Display Chat History ---
+for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# ---------------------------------------------
-# 🎤 Chat Input
-if prompt := st.chat_input("Ask your question here..."):
-    st.session_state.messages.append({"role": "user", "content": prompt})
+# --- Chat Input ---
+user_input = st.chat_input("Type your message here...")
+
+if user_input or "prompt" in st.session_state:
+    content = st.session_state.get("prompt", "") + "\n" + (user_input or "")
+    st.session_state.messages.append({"role": "user", "content": content})
     with st.chat_message("user"):
-        st.markdown(prompt)
+        st.markdown(content)
 
-    # ⏳ Typing animation
-    with st.chat_message("assistant"):
-        message_placeholder = st.empty()
-        message_placeholder.markdown("🤖 Nova is typing<span class='dots'>.</span>", unsafe_allow_html=True)
+    # Reset prompt
+    st.session_state.pop("prompt", None)
 
-        # Call OpenAI API
+    # --- Spinner while waiting ---
+    with st.spinner("Nova is thinking..."):
         try:
-            response = client.chat.completions.create(
-                model="gpt-4",
-                messages=st.session_state.messages,
-                temperature=0.6,
-                max_tokens=500
-            )
-            assistant_reply = response.choices[0].message.content
-        except Exception as e:
-            assistant_reply = f"⚠️ Something went wrong: {e}"
+            api_key = st.secrets["openai"]["api_key"]
+            headers = {
+                "Authorization": f"Bearer {api_key}",
+                "HTTP-Referer": "https://yourdomain.com",
+                "X-Title": "NovaAI-Chat",
+            }
 
-        message_placeholder.markdown(assistant_reply)
-        st.session_state.messages.append({"role": "assistant", "content": assistant_reply})
+            payload = {
+                "model": model_choice,
+                "messages": st.session_state.messages,
+                "stream": False,
+            }
+
+            response = requests.post(
+                "https://openrouter.ai/api/v1/chat/completions",
+                headers=headers,
+                json=payload,
+                timeout=30,
+            )
+
+            if response.status_code == 200:
+                reply = response.json()["choices"][0]["message"]["content"]
+            else:
+                reply = f"⚠️ Error {response.status_code}: {response.text}"
+
+        except Exception as e:
+            reply = f"🚨 Failed to fetch response: {str(e)}"
+
+    # --- Display AI Reply ---
+    st.session_state.messages.append({"role": "assistant", "content": reply})
+    with st.chat_message("assistant"):
+        st.markdown(reply)
+
+    st.session_state.count += 1
+
+# --- Stats Footer ---
+st.markdown("---")
+st.markdown(f"🧠 Messages exchanged: **{st.session_state.count}**")
+st.caption("Built with ❤️ by Solace + Nyx ⚡️ | Powered by OpenRouter APIs")
+
