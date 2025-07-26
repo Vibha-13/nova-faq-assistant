@@ -34,7 +34,7 @@ def inject_custom_css(dark_mode):
                 background-color: {bubble_color};
             }}
             .nova-bubble {{
-                background-color: #f7f0ff;
+                background-color: #DAD4E0;
             }}
             .user-bubble {{
                 background-color: #ccc;
