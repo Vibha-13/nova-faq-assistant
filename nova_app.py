@@ -17,7 +17,7 @@ with st.sidebar:
 
     dark_mode = st.toggle("🌙 Dark Mode")
     if dark_mode:
-    st.markdown(
+      st.markdown(
         """
         <style>
         .stApp {
@@ -43,8 +43,6 @@ with st.sidebar:
         """,
         unsafe_allow_html=True,
     )
-
-
     if st.button("🧼 Clear Chat"):
         st.session_state.messages = []
         st.session_state.count = 0
