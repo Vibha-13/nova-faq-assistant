@@ -32,7 +32,7 @@ with st.sidebar:
     if st.button("🧼 Clear Chat"):
         st.session_state.messages = []
         st.session_state.count = 0
-        st.experimental_rerun()
+       st.rerun()
 
 # --- Session State Init ---
 if "messages" not in st.session_state:
