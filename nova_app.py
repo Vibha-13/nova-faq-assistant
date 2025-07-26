@@ -21,9 +21,14 @@ with st.sidebar:
     )
     
     st.markdown("## 🌓 Theme Toggle")
-   # -- Dark Mode Toggle --
-dark_mode = st.sidebar.toggle("🌗 Dark Mode", value=False)
+    # -- Dark Mode Toggle --
+    dark_mode = st.toggle("🌗 Dark Mode", value=False)
 
+    st.markdown("---")
+    if st.button("🧹 Clear Chat"):
+        st.session_state.messages = []
+
+# ------------------ Dark Mode Styling ------------------
 if dark_mode:
     st.markdown("""
         <style>
@@ -58,11 +63,6 @@ if dark_mode:
             }
         </style>
     """, unsafe_allow_html=True)
-
-
-    st.markdown("---")
-    if st.button("🧹 Clear Chat"):
-        st.session_state.messages = []
 
 # ------------------ Tone/Mood System Prompt ------------------
 tone_dict = {
