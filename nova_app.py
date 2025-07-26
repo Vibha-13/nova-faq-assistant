@@ -1,106 +1,98 @@
 import streamlit as st
+from streamlit_chat import message
 import time
-import random
 
-# ------------------------------
-# Mood Styles
-# ------------------------------
+# ---------------------- Config & Style ----------------------
+st.set_page_config(page_title="Nova - FAQ Assistant", layout="centered")
+
+st.markdown("""
+    <style>
+    .main {
+        background-color: #fdf6ff;
+        font-family: 'Segoe UI', sans-serif;
+    }
+    .stTextInput > div > div > input {
+        font-size: 16px;
+        padding: 8px;
+    }
+    .stButton>button {
+        background-color: #ff69b4;
+        color: white;
+        font-weight: bold;
+        border-radius: 8px;
+        padding: 0.5rem 1rem;
+    }
+    </style>
+""", unsafe_allow_html=True)
+
+# ---------------------- Nova Mood Styles ----------------------
 MOOD_STYLES = {
-    "sassy": "💅 Honey, let me fix that for you",
-    "friendly": "😊 Here's what I found for you",
-    "robotic": "🤖 Query received. Processing...",
-    "chill": "😎 No worries, I've got you covered",
+    "friendly": "🧠 Nova (Friendly):",
+    "sassy": "💅 Nova (Sassy):",
+    "professional": "💼 Nova (Pro):",
+    "flirty": "😉 Nova (Flirty):"
 }
 
-# Bonus Tips
-BONUS_TIPS = [
-    "🧠 Tip: Use Ctrl + F to find things faster in FAQ docs!",
-    "📌 Nova = fast, friendly, fabulous answers.",
-    "🚀 Ask in simple words — I’ll handle the complexity!",
-    "🎯 Switch my mood for different reply vibes!",
-    "💬 Yes, emojis are totally supported 💖",
-    "📚 Don't read long docs. Ask Nova instead 😎",
-    "🎉 Tip: Try weird questions too. I surprise you sometimes!"
-]
+# ---------------------- Session State Setup ----------------------
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# ------------------------------
-# Typing Effect
-# ------------------------------
-def simulate_typing(text):
-    with st.empty():
-        displayed = ""
-        for char in text:
-            displayed += char
-            time.sleep(0.01)
-            st.markdown(displayed + "▌")
-        time.sleep(0.3)
-        st.markdown(displayed)
-
-# ------------------------------
-# Nova Brain 🧠
-# ------------------------------
+# ---------------------- Generate Nova Reply ----------------------
 def generate_nova_reply(user_msg, mood):
     msg = user_msg.lower()
 
-    if "nova" in msg:
-        return "Nova is your AI-powered FAQ assistant built to answer questions with style and sass 💅"
-    elif "ai" in msg or "artificial" in msg:
-        return "AI means Artificial Intelligence — machines doing smart things, like me!"
-    elif "network" in msg or "net" in msg:
-        return "A network is a group of connected computers that share resources or info."
+    # Specific, helpful replies
+    if "generate pictures" in msg or "image generation" in msg or "ai for images" in msg:
+        return "🎨 For image generation, top AIs are **DALL·E**, **Midjourney**, and **Stable Diffusion**."
+
+    elif "best ai" in msg and "text" in msg:
+        return "✍️ GPT-4 (like me!) is considered the best for generating human-like text."
+
+    elif "nova" in msg:
+        return "Nova is your personal AI FAQ assistant, full of brains and attitude 💅"
+
     elif "python" in msg:
-        return "Python is a popular programming language known for being beginner-friendly 🐍"
-    elif "ml" in msg or "machine learning" in msg:
-        return "Machine Learning helps computers learn from data — no hard-coding!"
+        return "🐍 Python is a beginner-friendly language perfect for AI, automation, and web development."
+
+    elif "network" in msg or "networking" in msg:
+        return "🌐 Networking means connecting devices so they can share data. Like a group chat for computers!"
+
+    elif "machine learning" in msg or "ml" in msg:
+        return "🧠 Machine learning teaches systems to learn from data — like how Nova learns *your vibe* 😉"
+
     elif "love" in msg:
-        return "Awww 🥺 Love you more, Captain 💖"
-    
+        return "Awww 🥹 Nova loves you back, Captain 💖"
+
+    # Catch-all fallback
     return f"{MOOD_STYLES.get(mood, '🤖')} You asked: *{user_msg}*"
 
-# ------------------------------
-# Main App
-# ------------------------------
-def main():
-    st.set_page_config("Nova FAQ Assistant", page_icon="🧠", layout="centered")
+# ---------------------- Header ----------------------
+st.title("🧠 Nova - Your FAQ Assistant")
+st.markdown("Ask me anything about your project. Nova’s got brains and personality 😎")
 
-    # ---- SIDEBAR ----
-    with st.sidebar:
-        st.image("nova_bot.png", caption="Nova, Your Assistant 🤖", use_column_width=True)
-        st.markdown("### 🌟 Nova Quick Links")
-        st.markdown("- [FAQ Docs](https://example.com)")
-        st.markdown("- [Project GitHub](https://github.com)")
-        st.markdown("—")
-        st.markdown("### 🧠 Mood Help")
-        for mood, desc in MOOD_STYLES.items():
-            st.markdown(f"**{mood.title()}**: {desc}")
+# ---------------------- Mood Picker ----------------------
+mood = st.selectbox("Choose Nova’s Mood", options=["friendly", "sassy", "professional", "flirty"], index=0)
 
-        st.markdown("---")
-        st.caption("💖 Built by Captain Solace & Nyx")
+# ---------------------- Input ----------------------
+with st.form(key="chat_form", clear_on_submit=True):
+    user_input = st.text_input("💬 Ask your question:", key="input", placeholder="e.g. What is machine learning?")
+    submit = st.form_submit_button("Send")
 
-    # ---- HEADER ----
-    st.title("🧠 Nova - Your FAQ Assistant")
-    st.markdown("Ask me anything about your project. Nova’s got brains *and* personality 😎")
+# ---------------------- Processing ----------------------
+if submit and user_input:
+    # Add user message
+    st.session_state.messages.append({"role": "user", "text": user_input})
 
-    # ---- MOOD SELECT ----
-    mood = st.selectbox("Choose Nova’s Mood", list(MOOD_STYLES.keys()), index=1)
+    # Generate Nova's reply
+    response = generate_nova_reply(user_input, mood)
 
-    # ---- USER INPUT ----
-    user_input = st.text_input("💬 Ask your question:")
+    # Simulate typing
+    st.session_state.messages.append({"role": "nova", "text": response})
 
-    # ---- ANSWER SECTION ----
-    if st.button("💡 Get Answer") or user_input:
-        if user_input.strip():
-            st.markdown("👤 You: " + user_input)
-            response = generate_nova_reply(user_input, mood)
-            simulate_typing("🧠 Nova: " + response)
+# ---------------------- Display Messages ----------------------
+for msg in st.session_state.messages:
+    if msg["role"] == "user":
+        message(msg["text"], is_user=True, key=msg["text"] + "_user")
+    else:
+        message(msg["text"], key=msg["text"] + "_nova")
 
-    # ---- BONUS TIPS ----
-    with st.expander("🎁 Bonus Tip of the Moment"):
-        st.success(random.choice(BONUS_TIPS))
-
-    # ---- FOOTER ----
-    st.markdown("<hr><center>🛠️ Powered by Streamlit | 💬 Version: Nova v2.0</center>", unsafe_allow_html=True)
-
-# ------------------------------
-if __name__ == "__main__":
-    main()
