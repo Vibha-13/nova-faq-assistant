@@ -77,7 +77,7 @@ if user_input or "prompt" in st.session_state:
     # --- Spinner while waiting ---
     with st.spinner("Nova is thinking..."):
         try:
-            api_key = st.secrets["openai"]["api_key"]
+            api_key = st.secrets["OPENROUTER_API_KEY"]
             headers = {
                 "Authorization": f"Bearer {api_key}",
                 "HTTP-Referer": "https://yourdomain.com",
