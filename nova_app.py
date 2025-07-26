@@ -89,6 +89,7 @@ if prompt := st.chat_input("Ask your question here..."):
                 model="gpt-4",
                 messages=st.session_state.messages,
                 temperature=0.6,
+                max_tokens=500
             )
             assistant_reply = response.choices[0].message.content
         except Exception as e:
