@@ -1,6 +1,7 @@
 import streamlit as st
 import requests
 
+# --- Page Setup ---
 st.set_page_config(page_title="Nova AI Assistant", layout="wide")
 
 # --- Sidebar ---
@@ -17,45 +18,49 @@ with st.sidebar:
 
     dark_mode = st.toggle("🌙 Dark Mode")
     if dark_mode:
-      st.markdown(
-        """
-        <style>
-        .stApp {
-            background-color: #0e1117;
-            color: #FAFAFA;
-        }
-        .stMarkdown, .stChatMessage {
-            color: #FAFAFA !important;
-        }
-        .stChatMessage .markdown-text-container {
-            color: #FAFAFA !important;
-        }
-        .stTextInput > div > input {
-            background-color: #2c2f35;
-            color: #FAFAFA;
-        }
-        .stButton>button {
-            background-color: #1f1f1f;
-            color: #FAFAFA;
-            border: 1px solid #888;
-        }
-        </style>
-        """,
-        unsafe_allow_html=True,
-    )
+        st.markdown(
+            """
+            <style>
+            .stApp {
+                background-color: #0e1117;
+                color: #FAFAFA;
+            }
+            .stMarkdown, .stChatMessage {
+                color: #FAFAFA !important;
+            }
+            .stChatMessage .markdown-text-container {
+                color: #FAFAFA !important;
+            }
+            .stTextInput > div > input {
+                background-color: #2c2f35;
+                color: #FAFAFA;
+            }
+            .stButton>button {
+                background-color: #1f1f1f;
+                color: #FAFAFA;
+                border: 1px solid #888;
+            }
+            </style>
+            """,
+            unsafe_allow_html=True,
+        )
+
     if st.button("🧼 Clear Chat"):
         st.session_state.messages = []
         st.session_state.count = 0
-       st.rerun()
+        st.rerun()
 
-# --- Session State Init ---
+# --- Session Initialization ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
 if "count" not in st.session_state:
     st.session_state.count = 0
 
-# --- Title ---
+if "prompt" not in st.session_state:
+    st.session_state.prompt = ""
+
+# --- Main Title ---
 st.title("💬 Nova Chatbot")
 st.markdown("Ask anything, and Nova will help you out!")
 
@@ -71,30 +76,30 @@ with col3:
     if st.button("🧹 Fix Grammar"):
         st.session_state.prompt = "Correct the grammar in this sentence:"
 
-# --- Display Chat History ---
+# --- Show Chat History ---
 for msg in st.session_state.messages:
     with st.chat_message(msg["role"]):
         st.markdown(msg["content"])
 
-# --- Chat Input ---
+# --- Chat Input Box ---
 user_input = st.chat_input("Type your message here...")
 
-if user_input or "prompt" in st.session_state:
-    content = st.session_state.get("prompt", "") + "\n" + (user_input or "")
-    st.session_state.messages.append({"role": "user", "content": content})
+if user_input or st.session_state.prompt:
+    full_prompt = st.session_state.prompt + "\n" + (user_input or "")
+    st.session_state.messages.append({"role": "user", "content": full_prompt})
     with st.chat_message("user"):
-        st.markdown(content)
+        st.markdown(full_prompt)
 
-    # Reset prompt
-    st.session_state.pop("prompt", None)
+    # Clear prompt after using
+    st.session_state.prompt = ""
 
-    # --- Spinner while waiting ---
+    # --- Response Handling ---
     with st.spinner("Nova is thinking..."):
         try:
-            api_key = st.secrets["OPENROUTER_API_KEY"]
+            api_key = st.secrets["OPENROUTER_API_KEY"]  # 🔐 Make sure this is set in `.streamlit/secrets.toml`
             headers = {
                 "Authorization": f"Bearer {api_key}",
-                "HTTP-Referer": "https://yourdomain.com",
+                "HTTP-Referer": "https://yourdomain.com",  # replace with your actual domain if hosted
                 "X-Title": "NovaAI-Chat",
             }
 
@@ -119,15 +124,14 @@ if user_input or "prompt" in st.session_state:
         except Exception as e:
             reply = f"🚨 Failed to fetch response: {str(e)}"
 
-    # --- Display AI Reply ---
+    # --- Display AI Response ---
     st.session_state.messages.append({"role": "assistant", "content": reply})
     with st.chat_message("assistant"):
         st.markdown(reply)
 
     st.session_state.count += 1
 
-# --- Stats Footer ---
+# --- Footer Stats ---
 st.markdown("---")
 st.markdown(f"🧠 Messages exchanged: **{st.session_state.count}**")
 st.caption("Built with ❤️ by Solace + Nyx ⚡️ | Powered by OpenRouter APIs")
-
