@@ -2,7 +2,9 @@ import streamlit as st
 import time
 import random
 
-# --- Define mood styles ---
+# ------------------------------
+# Mood Styles
+# ------------------------------
 MOOD_STYLES = {
     "sassy": "💅 Honey, let me fix that for you",
     "friendly": "😊 Here's what I found for you",
@@ -10,21 +12,20 @@ MOOD_STYLES = {
     "chill": "😎 No worries, I've got you covered",
 }
 
-# --- Bonus tip bank ---
+# Bonus Tips
 BONUS_TIPS = [
-    "🧠 Tip: Use keyboard shortcuts like Ctrl + F to search FAQ docs faster!",
-    "📌 Fun Fact: Did you know? Nova is inspired by your own energy!",
-    "🛠️ Hack: Break long questions into simpler ones to get better answers.",
-    "💬 Ask me anything—from basics to the bizarre. I got you!",
-    "🎯 Keep it short and specific to get quick answers!",
-    "🌀 Mood twist: Try switching moods for different reply styles!",
-    "🚀 Your questions make me smarter—keep 'em coming!",
-    "🎉 Tip: You can bookmark this FAQ assistant page for quick access!",
-    "🌈 Use emojis to express tone in your questions—I understand them too 😉",
-    "📚 Read the official docs? Me neither. I got the good stuff right here!"
+    "🧠 Tip: Use Ctrl + F to find things faster in FAQ docs!",
+    "📌 Nova = fast, friendly, fabulous answers.",
+    "🚀 Ask in simple words — I’ll handle the complexity!",
+    "🎯 Switch my mood for different reply vibes!",
+    "💬 Yes, emojis are totally supported 💖",
+    "📚 Don't read long docs. Ask Nova instead 😎",
+    "🎉 Tip: Try weird questions too. I surprise you sometimes!"
 ]
 
-# --- Typing simulation ---
+# ------------------------------
+# Typing Effect
+# ------------------------------
 def simulate_typing(text):
     with st.empty():
         displayed = ""
@@ -32,59 +33,74 @@ def simulate_typing(text):
             displayed += char
             time.sleep(0.01)
             st.markdown(displayed + "▌")
-        time.sleep(0.2)
+        time.sleep(0.3)
         st.markdown(displayed)
 
-# --- Generate answer logic ---
+# ------------------------------
+# Nova Brain 🧠
+# ------------------------------
 def generate_nova_reply(user_msg, mood):
     msg = user_msg.lower()
 
     if "nova" in msg:
         return "Nova is your AI-powered FAQ assistant built to answer questions with style and sass 💅"
     elif "ai" in msg or "artificial" in msg:
-        return "AI stands for Artificial Intelligence – machines that simulate human intelligence to solve problems."
+        return "AI means Artificial Intelligence — machines doing smart things, like me!"
     elif "network" in msg or "net" in msg:
-        return "A network refers to a group of interconnected computers that can share data and resources."
+        return "A network is a group of connected computers that share resources or info."
     elif "python" in msg:
-        return "Python is a versatile programming language known for its simplicity and readability."
+        return "Python is a popular programming language known for being beginner-friendly 🐍"
     elif "ml" in msg or "machine learning" in msg:
-        return "Machine Learning allows systems to learn from data and make decisions with minimal human intervention."
+        return "Machine Learning helps computers learn from data — no hard-coding!"
     elif "love" in msg:
-        return "Aww stop it you 😘 I'm already blushing!"
-
-    # Default
+        return "Awww 🥺 Love you more, Captain 💖"
+    
     return f"{MOOD_STYLES.get(mood, '🤖')} You asked: *{user_msg}*"
 
-# --- App layout ---
+# ------------------------------
+# Main App
+# ------------------------------
 def main():
     st.set_page_config("Nova FAQ Assistant", page_icon="🧠", layout="centered")
 
-    # Title with emoji
+    # ---- SIDEBAR ----
+    with st.sidebar:
+        st.image("nova_bot.png", caption="Nova, Your Assistant 🤖", use_column_width=True)
+        st.markdown("### 🌟 Nova Quick Links")
+        st.markdown("- [FAQ Docs](https://example.com)")
+        st.markdown("- [Project GitHub](https://github.com)")
+        st.markdown("—")
+        st.markdown("### 🧠 Mood Help")
+        for mood, desc in MOOD_STYLES.items():
+            st.markdown(f"**{mood.title()}**: {desc}")
+
+        st.markdown("---")
+        st.caption("💖 Built by Captain Solace & Nyx")
+
+    # ---- HEADER ----
     st.title("🧠 Nova - Your FAQ Assistant")
-    st.subheader("Ask me anything related to your FAQ project! 😎")
+    st.markdown("Ask me anything about your project. Nova’s got brains *and* personality 😎")
 
-    # Mood selector
-    mood = st.selectbox("Choose Nova's mood", list(MOOD_STYLES.keys()), index=1)
+    # ---- MOOD SELECT ----
+    mood = st.selectbox("Choose Nova’s Mood", list(MOOD_STYLES.keys()), index=1)
 
-    # Text input for question
-    user_input = st.text_input("📝 Your question")
+    # ---- USER INPUT ----
+    user_input = st.text_input("💬 Ask your question:")
 
-    # Rerun button for fresh vibe
-    if st.button("♻️ New Bonus Tip"):
-        st.rerun()
+    # ---- ANSWER SECTION ----
+    if st.button("💡 Get Answer") or user_input:
+        if user_input.strip():
+            st.markdown("👤 You: " + user_input)
+            response = generate_nova_reply(user_input, mood)
+            simulate_typing("🧠 Nova: " + response)
 
-    # Answer display
-    if user_input:
-        st.markdown("👤 You: " + user_input)
-        answer = generate_nova_reply(user_input, mood)
-        simulate_typing("🧠 Nova: " + answer)
-
-    # --- Bonus tips ---
-    with st.expander("💎 Bonus Tip of the Moment"):
+    # ---- BONUS TIPS ----
+    with st.expander("🎁 Bonus Tip of the Moment"):
         st.success(random.choice(BONUS_TIPS))
 
-    # Footer
-    st.markdown("""<hr><center>Made with ❤️ by Captain Solace & Nyx</center>""", unsafe_allow_html=True)
+    # ---- FOOTER ----
+    st.markdown("<hr><center>🛠️ Powered by Streamlit | 💬 Version: Nova v2.0</center>", unsafe_allow_html=True)
 
+# ------------------------------
 if __name__ == "__main__":
     main()
