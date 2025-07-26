@@ -4,7 +4,7 @@ from openai import OpenAI
 
 # Initialize OpenAI client
 client = OpenAI(
-    api_key=st.secrets["OPENAI_API_KEY"],
+    api_key = st.secrets["OPENROUTER_API_KEY"],
     base_url="https://openrouter.ai/api/v1"
 )
 
