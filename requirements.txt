@@ -1,4 +1,2 @@
 streamlit
 openai>=1.3.5
-Pillow  # For handling image uploads if you ever add it
-

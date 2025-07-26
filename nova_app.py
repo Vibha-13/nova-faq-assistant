@@ -3,7 +3,11 @@ import random
 from openai import OpenAI
 
 # Initialize OpenAI client
-client = OpenAI()
+client = OpenAI(
+    api_key=st.secrets["OPENAI_API_KEY"],
+    base_url="https://openrouter.ai/api/v1"
+)
+
 
 st.set_page_config(page_title="Nova FAQ Assistant", page_icon="🤖")
 
