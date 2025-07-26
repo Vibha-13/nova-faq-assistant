@@ -1,55 +1,45 @@
-import os
-from dotenv import load_dotenv
 import streamlit as st
 from openai import OpenAI
+from dotenv import load_dotenv
+import os
 
-# --- Load environment variables ---
+# Load .env
 load_dotenv()
-api_key = os.getenv("OPENAI_API_KEY")
 
+# Get API Key
+api_key = os.getenv("OPENROUTER_API_KEY")
 if not api_key:
-    raise ValueError("❌ OPENAI_API_KEY not found. Please check your .env file.")
+    raise ValueError("❌ OPENROUTER_API_KEY not found. Please check your .env file.")
 
-# --- Initialize OpenAI client ---
-client = OpenAI(api_key=api_key)
+# Initialize client for OpenRouter
+client = OpenAI(
+    base_url="https://openrouter.ai/api/v1",
+    api_key=api_key,
+)
 
-# --- Streamlit UI ---
-st.set_page_config(page_title="Nova: FAQ Assistant", page_icon="🤖")
+# Sidebar with emoji and logo
 st.sidebar.image("nova_bot.png", width=150)
-st.sidebar.title("🌟 Nova Assistant")
-st.sidebar.markdown("Ask your FAQs, get instant answers!")
+st.sidebar.markdown("## 🤖 Nova FAQ Assistant")
+st.sidebar.markdown("**Ask me anything about your project!**")
+st.sidebar.markdown("---")
+st.sidebar.markdown("🌐 Powered by [OpenRouter](https://openrouter.ai)")
 
-st.title("💬 Nova: Your FAQ Assistant")
-st.markdown("Type a question below and let Nova help you!")
+# Main UI
+st.title("💬 Ask Nova – Your AI FAQ Assistant")
+user_input = st.text_input("What do you want to know?", "")
 
-# --- Session storage ---
-if "chat" not in st.session_state:
-    st.session_state.chat = []
-
-# --- Input form ---
-with st.form("user_input"):
-    user_query = st.text_input("Ask Nova something:")
-    submitted = st.form_submit_button("Ask 🔍")
-
-if submitted and user_query:
-    st.session_state.chat.append(("You", user_query))
-
-    try:
-        response = client.chat.completions.create(
-            model="gpt-3.5-turbo",
-            messages=[
-                {"role": "system", "content": "You are Nova, a helpful assistant."},
-                {"role": "user", "content": user_query},
-            ]
-        )
-        reply = response.choices[0].message.content.strip()
-        st.session_state.chat.append(("Nova 🤖", reply))
-    except Exception as e:
-        st.error(f"⚠️ Error: {str(e)}")
-
-# --- Display chat history ---
-for sender, msg in st.session_state.chat:
-    if sender == "You":
-        st.markdown(f"**🧑 You:** {msg}")
-    else:
-        st.markdown(f"**🤖 Nova:** {msg}")
+if st.button("Submit") or user_input:
+    with st.spinner("Nova is thinking..."):
+        try:
+            response = client.chat.completions.create(
+                model="mistralai/mixtral-8x7b",
+                messages=[
+                    {"role": "system", "content": "You're a helpful assistant for student project FAQs."},
+                    {"role": "user", "content": user_input}
+                ]
+            )
+            answer = response.choices[0].message.content
+            st.success("Here's what I found:")
+            st.write("🧠", answer)
+        except Exception as e:
+            st.error(f"🚨 Error: {str(e)}")
