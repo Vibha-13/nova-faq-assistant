@@ -1,86 +1,112 @@
+🧠 Nova - ChatGPT UI Clone (Streamlit Based)
 
-# 🤖 Nova - Smart FAQ Assistant
+Nova is a stylish, minimal, and playful ChatGPT clone made using Streamlit — built to give a smooth and interactive chat experience between you and your favorite AI assistant.
 
-Nova is your intelligent, friendly FAQ assistant that automatically loads your FAQ CSV file and answers questions instantly. If she can't find a good answer, she asks a powerful LLM like GPT for help — no manual uploads, no fuss.
 
-> 📁 Auto-loads `faqs.csv` from your project folder  
-> ⚙️ Uses TogetherAI's Mixtral-8x7B or OpenRouter models  
-> 🎨 Built with Streamlit — deploy and go!
+
 
 ---
 
-## ✨ Features
+🚀 Features
 
-- 🔎 Smart FAQ Matching using fuzzy similarity
-- 💬 GPT-backed fallback when FAQ doesn’t help
-- 🧠 Powered by Together AI or OpenRouter
-- 📸 Sidebar image of Nova (customizable)
-- 💡 No manual upload needed — auto-loads `faqs.csv`
-- ⚡️ Easily deployable on [Streamlit Cloud](https://streamlit.io/cloud)
+💬 Real-time chat between You and Nova
+
+🌙 Toggle between Light and Dark themes
+
+🎨 Beautiful chat bubbles for both user and bot
+
+🎭 Witty Nova responses to keep it fun
+
+💡 Smart session memory using Streamlit state
+
+📱 Responsive and simple UI
+
+
 
 ---
 
-## 🛠️ Setup Instructions
+🛠️ Tech Stack
 
-### 1. Clone this repository
+Python 🐍
 
-```bash
-git clone https://github.com/your-username/nova-faq-assistant.git
-cd nova-faq-assistant
-```
+Streamlit
 
-### 2. Add your `faqs.csv` file
+HTML & CSS (for styling chat bubbles)
 
-Make sure it's formatted like this:
 
-```
-Question,Answer
-What is AI?,Artificial Intelligence is...
-What is ML?,Machine Learning is...
-```
 
-### 3. Add your secrets
+---
 
-Create a file named `.streamlit/secrets.toml` and paste:
+📸 Demo Preview
 
-```toml
-[together]
-api_key = "your_together_api_key_here"
-```
+🧍‍♂️ You: Do you like ChatGPT?
 
-(Or use `[openrouter]` instead with the correct key.)
+🧠 Nova: Oh, ChatGPT? That's my trusty sidekick. We make quite the dynamic duo, if I do say so myself.
 
-### 4. Install requirements
+🧍‍♂️ You: yeah sure
 
-```bash
+🧠 Nova: Did someone say "yeah sure" or was it just the wind? What can I assist you with today, darling?
+
+
+---
+
+🔧 How to Run Locally
+
+1. Clone this repo
+
+
+
+git clone https://github.com/your-username/nova-chat-ui.git
+cd nova-chat-ui
+
+2. Install dependencies
+
+
+
 pip install -r requirements.txt
-```
 
-### 5. Run locally
+3. Run the app
 
-```bash
-streamlit run nova_app.py
-```
 
----
 
-## 🚀 Deploy on Streamlit Cloud
+streamlit run app.py
 
-1. Push your project to GitHub  
-2. Go to [Streamlit Cloud](https://streamlit.io/cloud)  
-3. Connect your repo and set `nova_app.py` as the main file  
-4. Add your API key in **Secrets**  
-5. Deploy and share your app! ✨
 
 ---
 
-## 📷 Screenshot
+📁 Project Structure
 
-![Nova Screenshot](nova_screenshot.png)
+nova-chat-ui/
+├── app.py
+├── nova_bot.png
+├── requirements.txt
+└── README.md
+
 
 ---
 
-## 💖 Credits
+🖼️ Theme Options
 
-Built with 💙 by **Solace & Nyx**  
-Powered by **Together AI** and **Streamlit**
+You can switch between Light and Dark modes using the sidebar. Nova automatically adjusts the chat bubble styling to match your theme.
+
+
+---
+
+📌 To-Do / Future Improvements
+
+[ ] Add animations to chat bubbles 💫
+
+[ ] Integrate actual ChatGPT backend
+
+[ ] Add markdown rendering for Nova's responses
+
+[ ] Save chat history
+
+
+
+---
+
+✨ Credits
+
+Designed with love by Sol
+Chat assistant powered by Nova 🧠
