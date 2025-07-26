@@ -17,17 +17,33 @@ with st.sidebar:
 
     dark_mode = st.toggle("🌙 Dark Mode")
     if dark_mode:
-        st.markdown(
-            """
-            <style>
-            body, .stApp {
-                background-color: #0e1117;
-                color: #FAFAFA;
-            }
-            </style>
-            """,
-            unsafe_allow_html=True,
-        )
+    st.markdown(
+        """
+        <style>
+        .stApp {
+            background-color: #0e1117;
+            color: #FAFAFA;
+        }
+        .stMarkdown, .stChatMessage {
+            color: #FAFAFA !important;
+        }
+        .stChatMessage .markdown-text-container {
+            color: #FAFAFA !important;
+        }
+        .stTextInput > div > input {
+            background-color: #2c2f35;
+            color: #FAFAFA;
+        }
+        .stButton>button {
+            background-color: #1f1f1f;
+            color: #FAFAFA;
+            border: 1px solid #888;
+        }
+        </style>
+        """,
+        unsafe_allow_html=True,
+    )
+
 
     if st.button("🧼 Clear Chat"):
         st.session_state.messages = []
