@@ -16,7 +16,7 @@ st.set_page_config(
 )
 
 # Sidebar with branding image
-st.sidebar.image("nova_bot.png", use_column_width=True)
+st.sidebar.image("nova_bot.png", use_container_width=True)
 st.sidebar.title("🧠 Nova Assistant")
 st.sidebar.markdown("Ask me anything about your project!")
 
