@@ -1,63 +1,50 @@
 import streamlit as st
-import requests
+import openai
+from PIL import Image
 
-# --- Optional: Load from st.secrets (recommended for deployment) ---
-API_KEY = st.secrets.get("openrouter", {}).get("api_key", "")
-BASE_URL = st.secrets.get("openrouter", {}).get("base_url", "https://openrouter.ai/api/v1/chat")
+# Load and display logo in sidebar
+st.sidebar.image("nova_bot.png", width=100)
 
-# --- If you want to test locally without st.secrets, uncomment below ---
-# API_KEY = "your-openrouter-key-here"
-# BASE_URL = "https://openrouter.ai/api/v1/chat"
+# Title and UI
+st.sidebar.markdown("## 🧠 Nova Assistant")
+st.sidebar.markdown("Ask me anything about your project!")
 
-# --- App UI ---
-st.set_page_config(page_title="Nova FAQ Assistant", page_icon="🧠")
+st.sidebar.markdown("---")
+st.sidebar.markdown("⚙️ **Settings**")
+st.sidebar.markdown("Choose a model")
 
-st.sidebar.title("🧠 Nova Assistant")
-st.sidebar.write("Ask me anything about your project!")
+model = st.sidebar.selectbox(
+    "Model",
+    [
+        "mistralai/mistral-7b-instruct",
+        "meta-llama/llama-3-8b-instruct",
+        "openai/gpt-3.5-turbo",
+        "openai/gpt-4"
+    ],
+    index=1
+)
 
-# Show logo if exists
-try:
-    with open("nova_bot.png", "rb") as img_file:
-        st.sidebar.image(img_file, width=150)
-except FileNotFoundError:
-    st.sidebar.write("🖼️ Nova bot image not found.")
-
-st.sidebar.markdown("### ⚙️ Settings")
-model = st.sidebar.selectbox("Choose a model", [
-    "openrouter/meta-llama-3-8b-instruct",
-    "openrouter/mistral-7b-instruct",
-    "openrouter/gpt-3.5-turbo",
-])
+# Set OpenRouter API config
+openai.api_key = st.secrets["openrouter"]["api_key"]
+openai.api_base = "https://openrouter.ai/api/v1"
 
 st.title("💬 Nova FAQ Assistant")
 st.markdown("Ask your questions below:")
 
-user_input = st.text_area("Enter your question below:")
+user_question = st.text_input("Enter your question below:")
 
-if st.button("Submit"):
-    if not user_input.strip():
-        st.warning("Please enter a question.")
-    elif not API_KEY:
-        st.error("API key not set. Check secrets or hardcoded key.")
-    else:
-        with st.spinner("Thinking..."):
-            headers = {
-                "Authorization": f"Bearer {API_KEY}",
-                "Content-Type": "application/json"
-            }
-            payload = {
-                "model": model,
-                "messages": [
-                    {"role": "system", "content": "You are Nova, a helpful assistant for answering project-related queries."},
-                    {"role": "user", "content": user_input}
+if st.button("Ask Nova") and user_question:
+    try:
+        with st.spinner("Nova is thinking..."):
+            response = openai.ChatCompletion.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are a helpful project assistant."},
+                    {"role": "user", "content": user_question}
                 ]
-            }
-            try:
-                response = requests.post(BASE_URL, headers=headers, json=payload)
-                response.raise_for_status()
-                result = response.json()
-                reply = result['choices'][0]['message']['content']
-                st.success("✅ Nova's Response:")
-                st.markdown(reply)
-            except Exception as e:
-                st.error(f"❌ API Error: {e}")
+            )
+        st.success("✅ Nova's Response:")
+        st.markdown(response.choices[0].message.content)
+
+    except Exception as e:
+        st.error("❌ API Error: " + str(e))
