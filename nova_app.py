@@ -1,92 +1,133 @@
 import streamlit as st
-import requests
-import os
 from dotenv import load_dotenv
-from PIL import Image
+import os
+import requests
 
-# Load API Key
+# Load environment variables
 load_dotenv()
-API_KEY = os.getenv("OPENROUTER_API_KEY")
+api_key = os.getenv("OPENROUTER_API_KEY")
 
-# Page config
-st.set_page_config(page_title="Nova - GPT FAQ Assistant", layout="centered")
+# Streamlit page config
+st.set_page_config(page_title="Nova - GPT FAQ Assistant", layout="centered", initial_sidebar_state="expanded")
 
-# ---- DARK MODE TOGGLE ----
-if "dark_mode" not in st.session_state:
-    st.session_state.dark_mode = True
+# Custom CSS for Nova theme
+def inject_custom_css(dark_mode):
+    if dark_mode:
+        background = "#121212"
+        text_color = "#ffffff"
+        bubble_color = "#2A2A2A"
+    else:
+        background = "#f5f5f5"
+        text_color = "#000000"
+        bubble_color = "#e6e6e6"
 
-mode = st.toggle("🌗 Toggle Dark Mode", value=st.session_state.dark_mode)
-st.session_state.dark_mode = mode
-
-if st.session_state.dark_mode:
-    st.markdown(
-        """
+    st.markdown(f"""
         <style>
-        body { background-color: #0e1117; color: #ffffff; }
-        .stApp { background-color: #0e1117; color: white; }
+            .stApp {{
+                background-color: {background};
+                color: {text_color};
+            }}
+            .message-bubble {{
+                padding: 1rem;
+                border-radius: 10px;
+                margin: 0.5rem 0;
+                background-color: {bubble_color};
+            }}
+            .nova-bubble {{
+                background-color: #ffecb3;
+            }}
+            .user-bubble {{
+                background-color: #ccc;
+            }}
+            .chat-icon {{
+                font-size: 1.2rem;
+                margin-right: 5px;
+            }}
         </style>
-        """,
-        unsafe_allow_html=True
-    )
-else:
-    st.markdown(
-        """
-        <style>
-        body { background-color: #f8f9fa; color: #000000; }
-        .stApp { background-color: #f8f9fa; color: black; }
-        </style>
-        """,
-        unsafe_allow_html=True
+    """, unsafe_allow_html=True)
+
+# Sidebar
+with st.sidebar:
+    # Image
+    image_path = "assets/nova_bot.png"
+    if os.path.exists(image_path):
+        st.image(image_path, width=200)
+    else:
+        st.error("❌ nova_bot.png not found in 'assets/' folder.")
+
+    # Mood selector
+    st.markdown("## 🧠 Pick Nova's Mood")
+    mood = st.radio(
+        "",
+        ("Professional", "Friendly", "Sassy 😎", "Minimal"),
+        index=1
     )
 
-# ---- SIDEBAR ----
-st.sidebar.title("🧠 Pick Nova's Mood")
-persona = st.sidebar.radio("Choose Nova's personality:", ["Professional", "Friendly", "Sassy 😎", "Minimal"])
+    # Dark mode toggle
+    dark_mode = st.toggle("🌗 Dark Mode", value=False)
 
-# ---- HEADER ----
+    # Inject styling
+    inject_custom_css(dark_mode)
+
+    # Clear button
+    st.markdown("---")
+    if st.button("🧹 Clear Chat"):
+        st.session_state.messages = []
+
+# Mood system prompts
+tone_dict = {
+    "Professional": "You are Nova, a knowledgeable assistant who provides concise, expert-level answers in a professional tone.",
+    "Friendly": "You are Nova, a warm and friendly assistant who explains things in an easy and kind manner.",
+    "Sassy 😎": "You're Nova, a sassy, witty assistant who serves answers with humor and flair. Keep it fun but accurate.",
+    "Minimal": "You're Nova. Keep answers extremely short, to the point, with no fluff."
+}
+tone_prefix = tone_dict[mood]
+
+# OpenRouter API call
+def call_openrouter_gpt(prompt):
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json"
+    }
+    payload = {
+        "model": "openai/gpt-3.5-turbo",  # or openchat/openchat-3.5-0106
+        "messages": [
+            {"role": "system", "content": tone_prefix},
+            {"role": "user", "content": prompt}
+        ]
+    }
+    try:
+        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
+        response.raise_for_status()
+        return response.json()['choices'][0]['message']['content']
+    except Exception as e:
+        return f"❌ Error contacting Nova's brain: {e}"
+
+# Main chat title
 st.markdown("## 💬 Nova - GPT FAQ Assistant")
-st.caption("Ask me anything, honey 🍯 I'm powered by GPT.")
+st.markdown("Ask me anything, honey 🍯 I'm powered by GPT.\n")
 
-# ---- IMAGE LOADING ----
-image_path = "assets/nova_bot.png"
-if os.path.exists(image_path):
-    st.image(image_path, width=200)
-else:
-    st.error("❌ nova_bot.png not found in the project folder.")
+# Chat session state
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-# ---- USER QUERY ----
-question = st.text_input("Type your question here:")
+# Render previous chat
+for msg in st.session_state.messages:
+    role = msg["role"]
+    content = msg["content"]
+    if role == "user":
+        st.markdown(f"""<div class="message-bubble user-bubble">🧍‍♂️ <b>You:</b> {content}</div>""", unsafe_allow_html=True)
+    elif role == "assistant":
+        st.markdown(f"""<div class="message-bubble nova-bubble">🧠 <b>Nova:</b> {content}</div>""", unsafe_allow_html=True)
 
-# ---- RESPONSE ----
-if question and API_KEY:
-    with st.spinner("Thinking... 💭"):
-        headers = {
-            "Authorization": f"Bearer {API_KEY}",
-            "Content-Type": "application/json"
-        }
+# Input
+user_query = st.chat_input("Ask your question:")
 
-        prompt_map = {
-            "Professional": "Answer in a clear, expert tone.",
-            "Friendly": "Answer casually like a helpful friend.",
-            "Sassy 😎": "Answer with a sassy, witty twist.",
-            "Minimal": "Answer in the shortest and clearest way possible."
-        }
+if user_query:
+    st.session_state.messages.append({"role": "user", "content": user_query})
+    st.markdown(f"""<div class="message-bubble user-bubble">🧍‍♂️ <b>You:</b> {user_query}</div>""", unsafe_allow_html=True)
 
-        body = {
-            "model": "openchat/openchat-3.5-0106",
-            "messages": [
-                {"role": "system", "content": prompt_map[persona]},
-                {"role": "user", "content": question}
-            ]
-        }
-
-        try:
-            res = requests.post("https://openrouter.ai/api/v1/chat/completions", json=body, headers=headers)
-            res.raise_for_status()
-            answer = res.json()["choices"][0]["message"]["content"]
-            st.success(answer)
-        except requests.exceptions.RequestException as e:
-            st.error(f"❌ Error contacting Nova's brain: {e}")
-else:
-    if not API_KEY:
-        st.warning("🔑 Please set your OpenRouter API key in the `.env` file.")
+    with st.spinner("Nova is thinking..."):
+        reply = call_openrouter_gpt(user_query)
+        st.session_state.messages.append({"role": "assistant", "content": reply})
+        st.markdown(f"""<div class="message-bubble nova-bubble">🧠 <b>Nova:</b> {reply}</div>""", unsafe_allow_html=True)
