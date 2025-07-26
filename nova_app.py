@@ -21,7 +21,46 @@ with st.sidebar:
     )
     
     st.markdown("## 🌓 Theme Toggle")
-    dark_mode = st.toggle("Dark Mode", value=False)
+        dark_mode = st.toggle("Dark Mode 🌙", value=False)
+
+    # Apply dark theme CSS if dark_mode is enabled
+    if dark_mode:
+        st.markdown(
+            """
+            <style>
+                body, .stApp {
+                    background-color: #1e1e1e;
+                    color: #f1f1f1;
+                }
+                .stTextInput > div > input, .stTextArea textarea, .stChatInput input {
+                    background-color: #2c2c2c;
+                    color: white;
+                    border: 1px solid #555;
+                }
+                .css-1cpxqw2, .stButton button {
+                    background-color: #333 !important;
+                    color: white !important;
+                }
+                .stRadio > div {
+                    background-color: #2a2a2a;
+                    color: white;
+                    border-radius: 5px;
+                    padding: 5px;
+                }
+                .stMarkdown h1, .stMarkdown h2, .stMarkdown h3 {
+                    color: #e6e6e6;
+                }
+                .stChatMessage {
+                    background-color: #262626;
+                    border-radius: 10px;
+                    padding: 10px;
+                    margin-bottom: 10px;
+                }
+            </style>
+            """,
+            unsafe_allow_html=True
+        )
+
 
     st.markdown("---")
     if st.button("🧹 Clear Chat"):
