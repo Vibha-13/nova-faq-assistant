@@ -1,133 +1,92 @@
 import streamlit as st
-from dotenv import load_dotenv
-import os
-import requests
+import openai
+import random
 
-# Load environment variables
-load_dotenv()
-api_key = os.getenv("OPENROUTER_API_KEY")
+st.set_page_config(page_title="Nova", page_icon="🧠", layout="centered")
 
-# Streamlit page config
-st.set_page_config(page_title="Nova - GPT FAQ Assistant", layout="centered", initial_sidebar_state="expanded")
-
-# Custom CSS for Nova theme
-def inject_custom_css(dark_mode):
-    if dark_mode:
-        background = "#121212"
-        text_color = "#ffffff"
-        bubble_color = "#2A2A2A"
-    else:
-        background = "#f5f5f5"
-        text_color = "#000000"
-        bubble_color = "#e6e6e6"
-
-    st.markdown(f"""
-        <style>
-            .stApp {{
-                background-color: {background};
-                color: {text_color};
-            }}
-            .message-bubble {{
-                padding: 1rem;
-                border-radius: 10px;
-                margin: 0.5rem 0;
-                background-color: {bubble_color};
-            }}
-            .nova-bubble {{
-                background-color: #DAD4E0;
-            }}
-            .user-bubble {{
-                background-color: #ccc;
-            }}
-            .chat-icon {{
-                font-size: 1.2rem;
-                margin-right: 5px;
-            }}
-        </style>
-    """, unsafe_allow_html=True)
-
-# Sidebar
-with st.sidebar:
-    # Image
-    image_path = "assets/nova_bot.png"
-    if os.path.exists(image_path):
-        st.image(image_path, width=200)
-    else:
-        st.error("❌ nova_bot.png not found in 'assets/' folder.")
-
-    # Mood selector
-    st.markdown("## 🧠 Pick Nova's Mood")
-    mood = st.radio(
-        "",
-        ("Professional", "Friendly", "Sassy 😎", "Minimal"),
-        index=1
-    )
-
-    # Dark mode toggle
-    dark_mode = st.toggle("🌗 Dark Mode", value=False)
-
-    # Inject styling
-    inject_custom_css(dark_mode)
-
-    # Clear button
-    st.markdown("---")
-    if st.button("🧹 Clear Chat"):
-        st.session_state.messages = []
-
-# Mood system prompts
-tone_dict = {
-    "Professional": "You are Nova, a knowledgeable assistant who provides concise, expert-level answers in a professional tone.",
-    "Friendly": "You are Nova, a warm and friendly assistant who explains things in an easy and kind manner.",
-    "Sassy 😎": "You're Nova, a sassy, witty assistant who serves answers with humor and flair. Keep it fun but accurate.",
-    "Minimal": "You're Nova. Keep answers extremely short, to the point, with no fluff."
-}
-tone_prefix = tone_dict[mood]
-
-# OpenRouter API call
-def call_openrouter_gpt(prompt):
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json"
+# --- CSS Styling ---
+st.markdown("""
+    <style>
+    .user-bubble {
+        background-color: #f0f0f0;
+        color: #111;
+        padding: 10px 15px;
+        border-radius: 12px;
+        margin: 10px 0;
+        width: fit-content;
+        max-width: 80%;
     }
-    payload = {
-        "model": "openai/gpt-3.5-turbo",  # or openchat/openchat-3.5-0106
-        "messages": [
-            {"role": "system", "content": tone_prefix},
-            {"role": "user", "content": prompt}
-        ]
+    .nova-bubble {
+        background-color: #f7f0ff;
+        color: #222;
+        padding: 10px 15px;
+        border-radius: 12px;
+        margin: 10px 0;
+        width: fit-content;
+        max-width: 80%;
+        align-self: flex-end;
     }
-    try:
-        response = requests.post("https://openrouter.ai/api/v1/chat/completions", headers=headers, json=payload)
-        response.raise_for_status()
-        return response.json()['choices'][0]['message']['content']
-    except Exception as e:
-        return f"❌ Error contacting Nova's brain: {e}"
+    .chat-container {
+        display: flex;
+        flex-direction: column;
+    }
+    .title {
+        font-size: 36px;
+        font-weight: 700;
+        text-align: center;
+        margin-top: 20px;
+        margin-bottom: 5px;
+        color: #7b2cbf;
+    }
+    .subtitle {
+        font-size: 18px;
+        text-align: center;
+        color: #666;
+        margin-bottom: 20px;
+    }
+    </style>
+""", unsafe_allow_html=True)
 
-# Main chat title
-st.markdown("## 💬 Nova - GPT FAQ Assistant")
-st.markdown("Ask me anything, honey 🍯 I'm powered by GPT.\n")
+# --- Title ---
+st.markdown('<div class="title">🧠 Meet Nova</div>', unsafe_allow_html=True)
+st.markdown('<div class="subtitle">Your cheeky AI sidekick</div>', unsafe_allow_html=True)
 
-# Chat session state
+# --- Session Initialization ---
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
-# Render previous chat
-for msg in st.session_state.messages:
-    role = msg["role"]
-    content = msg["content"]
-    if role == "user":
-        st.markdown(f"""<div class="message-bubble user-bubble">🧍‍♂️ <b>You:</b> {content}</div>""", unsafe_allow_html=True)
-    elif role == "assistant":
-        st.markdown(f"""<div class="message-bubble nova-bubble">🧠 <b>Nova:</b> {content}</div>""", unsafe_allow_html=True)
+# --- Fun Greeting (only on first visit) ---
+if not st.session_state.messages:
+    greetings = [
+        "Well, well, well, if it isn't boredom knocking at your door. Time to kick boredom to the curb and show it who's boss! What's something fun you can do to shake things up?",
+        "I'm not saying I'm a genius, but... actually, yes, I am. Ask away, darling!",
+        "Look who decided to chat! What's on your mind, legend?",
+        "Nova’s in. Let’s make this conversation sparkle ✨"
+    ]
+    st.session_state.messages.append(("nova", random.choice(greetings)))
 
-# Input
-user_query = st.chat_input("Ask your question:")
+# --- Chat Logic ---
+def call_openrouter_gpt(prompt):
+    # Replace with your own logic or API call
+    # Example placeholder:
+    if "chatgpt" in prompt.lower():
+        return "Oh, ChatGPT? That's my trusty sidekick. We make quite the dynamic duo, if I do say so myself."
+    elif "bored" in prompt.lower():
+        return "Time to shake things up! How about you tell me something fun you love doing?"
+    else:
+        return f"Did someone say \"{prompt}\" or was it just the wind? What can I assist you with today, darling?"
 
-if user_query:
-    st.session_state.messages.append({"role": "user", "content": user_query})
-    st.markdown(f"""<div class="message-bubble user-bubble">🧍‍♂️ <b>You:</b> {user_query}</div>""", unsafe_allow_html=True)
+# --- Chat Container Display ---
+for role, content in st.session_state.messages:
+    bubble_class = "nova-bubble" if role == "nova" else "user-bubble"
+    prefix = "🧠 Nova:" if role == "nova" else "🧍‍♂️ You:"
+    st.markdown(f'<div class="{bubble_class}">{prefix} {content}</div>', unsafe_allow_html=True)
 
-    with st.spinner("Nova is thinking..."):
-        reply = call_openrouter_gpt(user_query)
-        st.session_state.messages.append({"role": "assistant", "content": reply})
-        st.markdown(f"""<div class="message-bubble nova-bubble">🧠 <b>Nova:</b> {reply}</div>""", unsafe_allow_html=True)
+# --- User Input ---
+user_input = st.text_input("Type your question here...", key="input_text")
+
+if user_input:
+    st.session_state.messages.append(("user", user_input))
+    nova_reply = call_openrouter_gpt(user_input)
+    st.session_state.messages.append(("nova", nova_reply))
+    st.experimental_rerun()
