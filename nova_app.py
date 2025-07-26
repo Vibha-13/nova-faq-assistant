@@ -1,76 +1,49 @@
 import streamlit as st
-import requests
+import openai
+import toml
+import os
 
-st.set_page_config(page_title="Nova Assistant", page_icon="🧠", layout="centered")
+# Load secrets from secrets.toml or Streamlit secrets
+if os.path.exists("secrets.toml"):
+    secrets = toml.load("secrets.toml")
+    api_key = secrets["openrouter"]["api_key"]
+    base_url = secrets["openrouter"]["base_url"]
+else:
+    api_key = st.secrets["openrouter"]["api_key"]
+    base_url = st.secrets["openrouter"]["base_url"]
 
-# Sidebar
-st.sidebar.title("🧠 Nova FAQ Assistant")
-st.sidebar.markdown("""
-**🗂️ Project**: Interactive AI FAQ Assistant  
-**🧪 Model**: Choose any from OpenRouter  
-**📌 Instructions**:  
-1. Enter your OpenRouter API key in `.streamlit/secrets.toml`  
-2. Select your desired model  
-3. Type your question & hit enter  
-""")
+# Set OpenAI API credentials
+openai.api_key = api_key
+openai.base_url = base_url
 
-# Optional logo
-try:
-    st.sidebar.image("nova_bot.png", width=150)
-except:
-    st.sidebar.caption("🤖")
+# UI setup
+st.set_page_config(page_title="Nova FAQ Assistant 🌟", page_icon="🤖", layout="centered")
 
-# API key
-api_key = st.secrets.get("openrouter", {}).get("api_key")
+with st.sidebar:
+    st.title("🧠 Nova Assistant")
+    st.markdown("Ask me anything about your project!")
+    st.divider()
+    st.markdown("⚙️ **Settings**")
+    model = st.selectbox("Choose a model", ["openrouter/meta-llama-3-8b-instruct", "openrouter/google/gemma-7b-it"], index=0)
 
-if not api_key:
-    st.error("⚠️ Please add your OpenRouter API key to `.streamlit/secrets.toml` like this:\n\n```toml\n[openrouter]\napi_key = \"your-key-here\"\n```")
-    st.stop()
+st.title("💬 Nova FAQ Assistant")
+st.markdown("Ask your questions below:")
 
-# Model select
-model = st.sidebar.selectbox("⚙️ Choose a model", [
-    "openrouter/mistral",
-    "openrouter/meta-llama-3-8b-instruct",
-    "openrouter/openchat-3.5-1210",
-    "openrouter/cinematika-7b",
-    "openrouter/gpt-3.5-turbo",  # If you have it
-], index=0)
-
-# System prompt
-system_prompt = "You are Nova, a helpful AI assistant designed to answer project FAQs and guide users in a friendly, concise, and engaging way."
-
-# Input box
-st.title("Nova - AI FAQ Assistant 💬")
 user_question = st.text_input("Enter your question below:")
 
-if user_question:
-    with st.spinner("Nova is typing..."):
+if st.button("Ask Nova"):
+    if user_question.strip() == "":
+        st.warning("Please enter a question.")
+    else:
         try:
-            response = requests.post(
-                "https://openrouter.ai/api/v1/chat/completions",
-                headers={
-                    "Authorization": f"Bearer {api_key}",
-                    "HTTP-Referer": "streamlit-nova-assistant",  # customize if you want
-                    "X-Title": "Nova FAQ Assistant",
-                    "Content-Type": "application/json"
-                },
-                json={
-                    "model": model,
-                    "messages": [
-                        {"role": "system", "content": system_prompt},
-                        {"role": "user", "content": user_question}
-                    ]
-                },
-                timeout=30
+            response = openai.chat.completions.create(
+                model=model,
+                messages=[
+                    {"role": "system", "content": "You are Nova, a friendly assistant who helps answer questions about projects clearly."},
+                    {"role": "user", "content": user_question}
+                ]
             )
-
-            if response.status_code == 200:
-                output = response.json()
-                reply = output["choices"][0]["message"]["content"]
-                st.success("✅ Nova's Response:")
-                st.markdown(reply)
-            else:
-                st.error(f"❌ API Error {response.status_code}: {response.text}")
-
+            st.success("✅ Nova's Response:")
+            st.markdown(response.choices[0].message.content)
         except Exception as e:
-            st.error(f"⚠️ Exception: {e}")
+            st.error(f"❌ API Error: {e}")
