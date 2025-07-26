@@ -108,5 +108,5 @@ You can switch between Light and Dark modes using the sidebar. Nova automaticall
 
 ✨ Credits
 
-Designed with love by Sol
+Designed with love by Vibha
 Chat assistant powered by Nova 🧠
